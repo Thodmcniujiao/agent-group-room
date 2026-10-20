@@ -1,0 +1,34 @@
+# Local runtimes and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+# Credentials, user configuration, task state and histories
+.env
+.env.*
+!.env.example
+*.dpapi
+*.sqlite3
+*.sqlite3-*
+*.db
+*.log
+*.jsonl
+preferences.json
+service.json
+credentials/
+.tiered/
+.deepseek-mcp/
+.codex/
+.claude/
+backups/
+# Personal documents and diagnostic captures
+*.pdf
+gui/preview-*.png
+gui/connection-check/
+Thumbs.db
+Desktop.ini
+*.lnk

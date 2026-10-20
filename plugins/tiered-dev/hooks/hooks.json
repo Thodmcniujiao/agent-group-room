@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hook.py",
+              "guard"
+            ],
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*deepseek.*__(delegate_to_deepseek|delegate_to_deepseek_readonly|start_deepseek|start_deepseek_readonly)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hook.py",
+              "contract"
+            ],
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.*deepseek.*__(delegate_to_deepseek|delegate_to_deepseek_readonly|start_deepseek|start_deepseek_readonly)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hook.py",
+              "log"
+            ],
+            "timeout": 10,
+            "onFailure": "continue"
+          }
+        ]
+      }
+    ]
+  }
+}

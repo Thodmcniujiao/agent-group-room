@@ -1,0 +1,17 @@
+{
+  "name": "tiered-local",
+  "owner": {
+    "name": "Thodmcniujiao"
+  },
+  "plugins": [
+    {
+      "name": "tiered-dev",
+      "source": "./plugins/tiered-dev",
+      "description": "Configurable team members, selectable models, custom API connections and independent supervision",
+      "version": "0.4.0"
+    }
+  ],
+  "metadata": {
+    "description": "Local Windows tiered coding workflow"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "tiered-dev",
+  "version": "0.4.0",
+  "description": "Configurable multi-provider team chat with independent policy-driven supervision",
+  "author": {
+    "name": "Thodmcniujiao"
+  },
+  "mcpServers": {
+    "deepseek": {
+      "command": "python",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/deepseek_server.py"
+      ]
+    },
+    "tiered-review": {
+      "command": "python",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/review_server.py"
+      ]
+    }
+  }
+}

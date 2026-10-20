@@ -1,0 +1,20 @@
+{
+  "deepseek-as-subagent": {
+    "commit": "7e54026392f85ccfc796f947faf9ffac3968a49e",
+    "installed": true,
+    "note": "hash-locked dependencies, non-editable wheel",
+    "repository": "https://github.com/PsChina/deepseek-as-subagent"
+  },
+  "codex-review-server": {
+    "commit": "6caed1ddc4bfc5304b5ab856cc4b2eac9c2fd1d2",
+    "installed": false,
+    "note": "inspected only; POSIX-specific, replaced by Windows read-only bridge",
+    "repository": "https://github.com/bdouble/codex-review-server"
+  },
+  "agent-room": {
+    "commit": "84eef7e13a25734c864af0ee738a8fa3484c410e",
+    "installed": false,
+    "note": "architecture inspected only; local GUI independently implemented without external room storage",
+    "repository": "https://github.com/agent-room-alkl/agent-room"
+  }
+}

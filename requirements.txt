@@ -1,0 +1,2 @@
+# Tested Windows / Python 3.12 environment. Upstream source is commit pinned.
+-r requirements.lock.txt

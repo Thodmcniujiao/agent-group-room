@@ -1,0 +1,484 @@
+[
+  {
+    "name": "annotated-doc",
+    "version": "0.0.5",
+    "license": "MIT",
+    "source": "https://github.com/fastapi/annotated-doc",
+    "license_files": [
+      "third_party/licenses/annotated-doc/LICENSE"
+    ]
+  },
+  {
+    "name": "annotated-types",
+    "version": "0.8.0",
+    "license": "MIT",
+    "source": "https://github.com/annotated-types/annotated-types",
+    "license_files": [
+      "third_party/licenses/annotated-types/LICENSE"
+    ]
+  },
+  {
+    "name": "anyio",
+    "version": "4.14.2",
+    "license": "MIT",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/anyio/LICENSE"
+    ]
+  },
+  {
+    "name": "attrs",
+    "version": "26.1.0",
+    "license": "MIT",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/attrs/LICENSE"
+    ]
+  },
+  {
+    "name": "certifi",
+    "version": "2026.7.22",
+    "license": "MPL-2.0",
+    "source": "https://github.com/certifi/python-certifi",
+    "license_files": [
+      "third_party/licenses/certifi/LICENSE"
+    ]
+  },
+  {
+    "name": "cffi",
+    "version": "2.1.1",
+    "license": "MIT-0",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/cffi/LICENSE"
+    ]
+  },
+  {
+    "name": "click",
+    "version": "8.5.0",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/pallets/click/",
+    "license_files": [
+      "third_party/licenses/click/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "colorama",
+    "version": "0.4.6",
+    "license": "BSD License",
+    "source": "https://github.com/tartley/colorama",
+    "license_files": [
+      "third_party/licenses/colorama/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "cryptography",
+    "version": "50.0.1",
+    "license": "Apache-2.0 OR BSD-3-Clause",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/cryptography/LICENSE",
+      "third_party/licenses/cryptography/LICENSE.APACHE",
+      "third_party/licenses/cryptography/LICENSE.BSD"
+    ]
+  },
+  {
+    "name": "deepseek-as-subagent",
+    "version": "0.1.0",
+    "license": "MIT",
+    "source": "https://github.com/PsChina/deepseek-as-subagent",
+    "license_files": [
+      "third_party/licenses/deepseek-as-subagent/LICENSE"
+    ]
+  },
+  {
+    "name": "distro",
+    "version": "1.9.0",
+    "license": "Apache License, Version 2.0",
+    "source": "https://github.com/python-distro/distro",
+    "license_files": []
+  },
+  {
+    "name": "google-re2",
+    "version": "1.1.20251105",
+    "license": "BSD License",
+    "source": "https://github.com/google/re2",
+    "license_files": [
+      "third_party/licenses/google-re2/LICENSE"
+    ]
+  },
+  {
+    "name": "h11",
+    "version": "0.16.0",
+    "license": "MIT",
+    "source": "https://github.com/python-hyper/h11",
+    "license_files": [
+      "third_party/licenses/h11/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "hatchling",
+    "version": "1.32.0",
+    "license": "MIT",
+    "source": "https://hatch.pypa.io/latest/",
+    "license_files": [
+      "third_party/licenses/hatchling/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "httpcore",
+    "version": "1.0.9",
+    "license": "BSD-3-Clause",
+    "source": "https://www.encode.io/httpcore/",
+    "license_files": [
+      "third_party/licenses/httpcore/LICENSE.md"
+    ]
+  },
+  {
+    "name": "httpx",
+    "version": "0.28.1",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/encode/httpx",
+    "license_files": [
+      "third_party/licenses/httpx/LICENSE.md"
+    ]
+  },
+  {
+    "name": "httpx-sse",
+    "version": "0.4.3",
+    "license": "MIT",
+    "source": "https://github.com/florimondmanca/httpx-sse",
+    "license_files": [
+      "third_party/licenses/httpx-sse/LICENSE"
+    ]
+  },
+  {
+    "name": "idna",
+    "version": "3.19",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/kjd/idna",
+    "license_files": [
+      "third_party/licenses/idna/LICENSE.md"
+    ]
+  },
+  {
+    "name": "jiter",
+    "version": "0.16.0",
+    "license": "MIT",
+    "source": "https://github.com/pydantic/jiter/",
+    "license_files": [
+      "third_party/licenses/jiter/LICENSE"
+    ]
+  },
+  {
+    "name": "jsonschema",
+    "version": "4.26.0",
+    "license": "MIT",
+    "source": "https://github.com/python-jsonschema/jsonschema",
+    "license_files": [
+      "third_party/licenses/jsonschema/COPYING"
+    ]
+  },
+  {
+    "name": "jsonschema-specifications",
+    "version": "2025.9.1",
+    "license": "MIT",
+    "source": "https://github.com/python-jsonschema/jsonschema-specifications",
+    "license_files": [
+      "third_party/licenses/jsonschema-specifications/COPYING"
+    ]
+  },
+  {
+    "name": "markdown-it-py",
+    "version": "4.2.0",
+    "license": "MIT License",
+    "source": "https://github.com/executablebooks/markdown-it-py",
+    "license_files": [
+      "third_party/licenses/markdown-it-py/LICENSE",
+      "third_party/licenses/markdown-it-py/LICENSE.markdown-it"
+    ]
+  },
+  {
+    "name": "mcp",
+    "version": "1.29.1",
+    "license": "MIT",
+    "source": "https://modelcontextprotocol.io",
+    "license_files": [
+      "third_party/licenses/mcp/LICENSE"
+    ]
+  },
+  {
+    "name": "mdurl",
+    "version": "0.1.2",
+    "license": "MIT License",
+    "source": "https://github.com/executablebooks/mdurl",
+    "license_files": []
+  },
+  {
+    "name": "openai",
+    "version": "2.54.0",
+    "license": "Apache-2.0",
+    "source": "https://github.com/openai/openai-python",
+    "license_files": [
+      "third_party/licenses/openai/LICENSE"
+    ]
+  },
+  {
+    "name": "packaging",
+    "version": "26.3",
+    "license": "Apache-2.0 OR BSD-2-Clause",
+    "source": "https://github.com/pypa/packaging",
+    "license_files": [
+      "third_party/licenses/packaging/LICENSE",
+      "third_party/licenses/packaging/LICENSE.APACHE",
+      "third_party/licenses/packaging/LICENSE.BSD"
+    ]
+  },
+  {
+    "name": "pathspec",
+    "version": "1.1.1",
+    "license": "Mozilla Public License 2.0 (MPL 2.0)",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/pathspec/LICENSE"
+    ]
+  },
+  {
+    "name": "pluggy",
+    "version": "1.6.0",
+    "license": "MIT",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/pluggy/LICENSE"
+    ]
+  },
+  {
+    "name": "pycparser",
+    "version": "3.0",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/eliben/pycparser",
+    "license_files": [
+      "third_party/licenses/pycparser/LICENSE"
+    ]
+  },
+  {
+    "name": "pydantic",
+    "version": "2.13.4",
+    "license": "MIT",
+    "source": "https://github.com/pydantic/pydantic",
+    "license_files": [
+      "third_party/licenses/pydantic/LICENSE"
+    ]
+  },
+  {
+    "name": "pydantic-settings",
+    "version": "2.15.0",
+    "license": "MIT",
+    "source": "https://github.com/pydantic/pydantic-settings",
+    "license_files": [
+      "third_party/licenses/pydantic-settings/LICENSE"
+    ]
+  },
+  {
+    "name": "pydantic_core",
+    "version": "2.46.4",
+    "license": "MIT",
+    "source": "https://github.com/pydantic",
+    "license_files": [
+      "third_party/licenses/pydantic_core/LICENSE"
+    ]
+  },
+  {
+    "name": "Pygments",
+    "version": "2.21.0",
+    "license": "BSD-2-Clause",
+    "source": "https://pygments.org",
+    "license_files": [
+      "third_party/licenses/Pygments/AUTHORS",
+      "third_party/licenses/Pygments/LICENSE"
+    ]
+  },
+  {
+    "name": "PyJWT",
+    "version": "2.15.1",
+    "license": "MIT",
+    "source": "https://github.com/jpadilla/pyjwt",
+    "license_files": [
+      "third_party/licenses/PyJWT/AUTHORS.rst",
+      "third_party/licenses/PyJWT/LICENSE"
+    ]
+  },
+  {
+    "name": "python-dotenv",
+    "version": "1.2.3",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/theskumar/python-dotenv",
+    "license_files": [
+      "third_party/licenses/python-dotenv/LICENSE"
+    ]
+  },
+  {
+    "name": "python-multipart",
+    "version": "0.0.32",
+    "license": "Apache-2.0",
+    "source": "https://github.com/Kludex/python-multipart",
+    "license_files": [
+      "third_party/licenses/python-multipart/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pywin32",
+    "version": "312",
+    "license": "PSF",
+    "source": "https://github.com/mhammond/pywin32",
+    "license_files": [
+      "third_party/licenses/pywin32/adodbapi/license.txt",
+      "third_party/licenses/pywin32/com/License.txt",
+      "third_party/licenses/pywin32/com/win32comext/mapi/src/MAPIStubLibrary/LICENSE",
+      "third_party/licenses/pywin32/isapi/README.txt",
+      "third_party/licenses/pywin32/pythonwin/License.txt",
+      "third_party/licenses/pywin32/pythonwin/Scintilla/License.txt",
+      "third_party/licenses/pywin32/pythonwin/pywin/idle/LICENSE.txt",
+      "third_party/licenses/pywin32/win32/License.txt"
+    ]
+  },
+  {
+    "name": "PyYAML",
+    "version": "6.0.3",
+    "license": "MIT",
+    "source": "https://pyyaml.org/",
+    "license_files": [
+      "third_party/licenses/PyYAML/LICENSE"
+    ]
+  },
+  {
+    "name": "referencing",
+    "version": "0.37.0",
+    "license": "MIT",
+    "source": "https://github.com/python-jsonschema/referencing",
+    "license_files": [
+      "third_party/licenses/referencing/COPYING"
+    ]
+  },
+  {
+    "name": "rich",
+    "version": "15.0.0",
+    "license": "MIT",
+    "source": "https://github.com/Textualize/rich",
+    "license_files": [
+      "third_party/licenses/rich/LICENSE"
+    ]
+  },
+  {
+    "name": "rpds-py",
+    "version": "2026.6.3",
+    "license": "MIT",
+    "source": "https://github.com/crate-py/rpds",
+    "license_files": [
+      "third_party/licenses/rpds-py/LICENSE"
+    ]
+  },
+  {
+    "name": "shellingham",
+    "version": "1.5.4",
+    "license": "ISC License",
+    "source": "https://github.com/sarugaku/shellingham",
+    "license_files": []
+  },
+  {
+    "name": "sniffio",
+    "version": "1.3.1",
+    "license": "MIT OR Apache-2.0",
+    "source": "https://github.com/python-trio/sniffio",
+    "license_files": []
+  },
+  {
+    "name": "socksio",
+    "version": "1.0.0",
+    "license": "UNKNOWN",
+    "source": "https://github.com/sethmlarson/socksio",
+    "license_files": []
+  },
+  {
+    "name": "sse-starlette",
+    "version": "3.4.8",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/sysid/sse-starlette",
+    "license_files": [
+      "third_party/licenses/sse-starlette/AUTHORS",
+      "third_party/licenses/sse-starlette/LICENSE"
+    ]
+  },
+  {
+    "name": "starlette",
+    "version": "1.6.0",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/Kludex/starlette",
+    "license_files": [
+      "third_party/licenses/starlette/LICENSE.md"
+    ]
+  },
+  {
+    "name": "tomlkit",
+    "version": "0.15.1",
+    "license": "MIT",
+    "source": "https://github.com/python-poetry/tomlkit",
+    "license_files": [
+      "third_party/licenses/tomlkit/LICENSE"
+    ]
+  },
+  {
+    "name": "tqdm",
+    "version": "4.70.0",
+    "license": "MPL-2.0 AND MIT",
+    "source": "",
+    "license_files": [
+      "third_party/licenses/tqdm/LICENCE"
+    ]
+  },
+  {
+    "name": "trove-classifiers",
+    "version": "2026.6.1.19",
+    "license": "Apache Software License",
+    "source": "https://github.com/pypa/trove-classifiers",
+    "license_files": [
+      "third_party/licenses/trove-classifiers/LICENSE"
+    ]
+  },
+  {
+    "name": "typer",
+    "version": "0.27.1",
+    "license": "MIT",
+    "source": "https://github.com/fastapi/typer",
+    "license_files": [
+      "third_party/licenses/typer/LICENSE"
+    ]
+  },
+  {
+    "name": "typing-inspection",
+    "version": "0.4.4",
+    "license": "MIT",
+    "source": "https://github.com/pydantic/typing-inspection",
+    "license_files": [
+      "third_party/licenses/typing-inspection/LICENSE"
+    ]
+  },
+  {
+    "name": "typing_extensions",
+    "version": "4.16.0",
+    "license": "PSF-2.0",
+    "source": "https://github.com/python/typing_extensions",
+    "license_files": [
+      "third_party/licenses/typing_extensions/LICENSE"
+    ]
+  },
+  {
+    "name": "uvicorn",
+    "version": "0.52.4",
+    "license": "BSD-3-Clause",
+    "source": "https://uvicorn.dev/",
+    "license_files": [
+      "third_party/licenses/uvicorn/LICENSE.md"
+    ]
+  }
+]
