@@ -36,6 +36,15 @@
     ]
   },
   {
+    "name": "bottle",
+    "version": "0.13.4",
+    "license": "MIT",
+    "source": "https://github.com/bottlepy/bottle",
+    "license_files": [
+      "third_party/licenses/bottle/LICENSE"
+    ]
+  },
+  {
     "name": "certifi",
     "version": "2026.7.22",
     "license": "MPL-2.0",
@@ -60,6 +69,15 @@
     "source": "https://github.com/pallets/click/",
     "license_files": [
       "third_party/licenses/click/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "clr_loader",
+    "version": "0.3.1",
+    "license": "MIT",
+    "source": "https://github.com/pythonnet/clr-loader",
+    "license_files": [
+      "third_party/licenses/clr_loader/LICENSE"
     ]
   },
   {
@@ -253,6 +271,13 @@
     ]
   },
   {
+    "name": "proxy_tools",
+    "version": "0.1.0",
+    "license": "MIT",
+    "source": "http://github.com/jtushman/proxy_tools",
+    "license_files": []
+  },
+  {
     "name": "pycparser",
     "version": "3.0",
     "license": "BSD-3-Clause",
@@ -324,6 +349,25 @@
     "source": "https://github.com/Kludex/python-multipart",
     "license_files": [
       "third_party/licenses/python-multipart/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pythonnet",
+    "version": "3.2.1",
+    "license": "MIT",
+    "source": "https://github.com/pythonnet/pythonnet",
+    "license_files": [
+      "third_party/licenses/pythonnet/AUTHORS.md",
+      "third_party/licenses/pythonnet/LICENSE"
+    ]
+  },
+  {
+    "name": "pywebview",
+    "version": "6.2.1",
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/r0x0r/pywebview",
+    "license_files": [
+      "third_party/licenses/pywebview/LICENSE"
     ]
   },
   {

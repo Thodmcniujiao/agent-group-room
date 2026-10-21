@@ -8,9 +8,10 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import logging
-from unittest.mock import patch
+from unittest.mock import AsyncMock,Mock,patch
 
 TEST_HOME=tempfile.TemporaryDirectory(prefix='tiered-gui-tests-')
 os.environ['TIERED_GUI_DATA_DIR']=TEST_HOME.name
@@ -23,6 +24,10 @@ from supervision import validate_decision
 from engines import preferences
 import engines
 import roster
+import debugger
+import model_catalog
+import account_usage
+import logins
 import httpx
 PREFERENCE_PATCHES=[patch.object(preferences,'STATE',Path(TEST_HOME.name)/'prefs'),
     patch.object(preferences,'PREFS',Path(TEST_HOME.name)/'prefs/preferences.json'),
@@ -80,10 +85,282 @@ class ModelAndPolicyTests(unittest.TestCase):
 
 class ApiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        self.pref_home=tempfile.TemporaryDirectory(dir=TEST_HOME.name)
+        base=Path(self.pref_home.name)
+        self.patches=[patch.object(preferences,'STATE',base),patch.object(preferences,'PREFS',base/'preferences.json'),
+            patch.object(preferences,'SECRET',base/'deepseek.dpapi'),patch.object(preferences,'PROFILE',base/'profile.toml'),
+            patch.object(roster,'_auth_cache',{}),patch.object(roster,'auth_status',return_value={
+                'chatgpt':{'ready':True,'detail':'已登录'},'claude':{'ready':True,'detail':'已登录'}})]
+        self.active_patches=[item.start() for item in self.patches]
+        self.debug_patch=patch.object(server,'DEBUG',debugger.AgentDebugger());self.debug_patch.start()
+        self.model_patch=patch.object(server,'MODELS',model_catalog.ModelCatalog(base/'model-catalog.json'));self.model_patch.start()
+        self.discovery_patch=patch.object(model_catalog,'discover',return_value=[{'id':'fixture-discovered-model','label':'Fixture model'}]);self.discovery=self.discovery_patch.start()
+        self.usage_patch=patch.object(server,'USAGE',account_usage.UsageMonitor());self.usage_patch.start()
+        self.read_usage_patch=patch.object(account_usage,'read_account',return_value={'status':'ready','plan':'fixture','windows':[{'label':'5 小时','used_percent':20,'remaining_percent':80,'resets_at':None}],'balances':[],'detail':'fixture'});self.read_usage=self.read_usage_patch.start()
         self.client=httpx.AsyncClient(transport=httpx.ASGITransport(app=server.app),base_url=server.ORIGIN)
 
     async def asyncTearDown(self):
+        await server.USAGE.close();self.read_usage_patch.stop();self.usage_patch.stop()
+        await server.MODELS.close();self.discovery_patch.stop();self.model_patch.stop()
+        await server.DEBUG.close();self.debug_patch.stop()
         await self.client.aclose()
+        for item in reversed(self.patches):item.stop()
+        self.pref_home.cleanup()
+
+    async def test_login_requires_csrf_and_reports_missing_cli_in_live_status(self):
+        manager=logins.Logins(lambda:None)
+        with patch.object(server,'LOGIN',manager),patch.object(logins,'find_cli',return_value=None):
+            self.assertEqual((await self.client.post('/api/login/chatgpt',json={})).status_code,403)
+            response=await self.client.post('/api/login/chatgpt',json={},headers={'X-Tiered-Token':server.TOKEN})
+            self.assertEqual(response.status_code,400)
+            self.assertIn('未找到 ChatGPT CLI',response.json()['error'])
+            state=(await self.client.get('/api/connection-state')).json()
+            self.assertEqual(state['logins']['chatgpt']['status'],'error')
+
+    async def test_successful_login_invalidates_cached_logged_out_connection(self):
+        manager=logins.Logins(server.login_complete)
+        proc=Mock(returncode=0,communicate=AsyncMock(return_value=(b'',b'')))
+        previous={'chatgpt':{'ready':False,'detail':'需要登录'},'claude':{'ready':True,'detail':'已登录'}}
+        with patch.object(server,'LOGIN',manager),patch.object(logins,'find_cli',return_value='fixture-codex.exe'),\
+             patch.object(logins.asyncio,'create_subprocess_exec',new_callable=AsyncMock,return_value=proc),\
+             patch.object(logins,'auth_status',new_callable=AsyncMock,return_value={'chatgpt':{'ready':True}}),\
+             patch.object(roster,'_auth_cache',previous),patch.object(roster,'_auth_checked',time.monotonic()):
+            response=await self.client.post('/api/login/chatgpt',json={},headers={'X-Tiered-Token':server.TOKEN})
+            self.assertEqual(response.status_code,200)
+            await manager.tasks['chatgpt']
+            state=(await self.client.get('/api/connection-state')).json()
+            self.assertTrue(state['connections']['chatgpt']['ready'])
+            self.assertEqual(state['logins']['chatgpt']['status'],'complete')
+
+    async def test_rooms_have_independent_members_and_dispatch_uses_room_configuration(self):
+        headers={'X-Tiered-Token':server.TOKEN};saved=preferences.save({});before=preferences.PREFS.read_bytes()
+        with tempfile.TemporaryDirectory(dir=TEST_HOME.name) as folder:
+            a=(await self.client.post('/api/rooms',json={'title':'A','project':folder},headers=headers)).json()['id']
+            b=(await self.client.post('/api/rooms',json={'title':'B','project':folder},headers=headers)).json()['id']
+            self.assertEqual((await self.client.get('/api/rooms/'+a)).json()['room_settings']['members'],[])
+            for rid,aid in [(a,'chatgpt'),(b,'claude')]:
+                url='/api/rooms/'+rid+'/members/'+aid+'/membership'
+                self.assertEqual((await self.client.post(url,json={'enabled':True})).status_code,403)
+                self.assertEqual((await self.client.post(url,json={'enabled':True},headers=headers)).status_code,200)
+            await self.client.post('/api/rooms/'+a+'/members/chatgpt',json={'model':'room-a-model'},headers=headers)
+            with patch.object(server.WORK,'start') as start:
+                response=await self.client.post('/api/rooms/'+a+'/send',json={'text':'test','preferences':{'team':[]}},headers=headers)
+                self.assertEqual(response.status_code,200,response.text)
+                settings=start.call_args.args[-1]
+                self.assertEqual([m['id'] for m in settings['members']],['chatgpt'])
+                self.assertEqual(settings['members'][0]['model'],'room-a-model')
+            bstate=(await self.client.get('/api/connection-state?room_id='+b)).json()['room_settings']
+            self.assertEqual([m['id'] for m in bstate['members']],['claude'])
+            self.assertEqual(preferences.PREFS.read_bytes(),before)
+
+    async def test_two_room_invitations_are_atomic_and_room_edits_cannot_change_connections(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        with tempfile.TemporaryDirectory(dir=TEST_HOME.name) as folder:
+            rid=(await self.client.post('/api/rooms',json={'project':folder},headers=headers)).json()['id']
+            replies=await asyncio.gather(*(self.client.post('/api/rooms/'+rid+'/members/'+aid+'/membership',
+                json={'enabled':True},headers=headers) for aid in ['chatgpt','claude']))
+            self.assertTrue(all(r.status_code==200 for r in replies))
+            selected=(await self.client.get('/api/rooms/'+rid)).json()['room_settings']
+            self.assertEqual({m['id'] for m in selected['members']},{'chatgpt','claude'})
+            response=await self.client.post('/api/rooms/'+rid+'/members/chatgpt',json={'base_url':'https://wrong.example'},headers=headers)
+            self.assertEqual(response.status_code,400)
+
+    async def test_connection_snapshot_tracks_roster_and_key_changes_without_restart(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        self.assertEqual(len((await self.client.get('/api/connection-state')).json()['preferences']['members']),3)
+        member={'create':True,'name':'Gemini','backend':'openai-compatible','model':'gemini-3.8-flash',
+            'base_url':'https://generativelanguage.googleapis.com/v1beta/openai','effort':'high','no_auth':False}
+        created=await self.client.post('/api/agents/gemini',json=member,headers=headers)
+        self.assertEqual(created.status_code,200,created.text)
+        state=(await self.client.get('/api/connection-state')).json()
+        self.assertEqual(len(state['preferences']['agents']),4)
+        self.assertEqual(len(state['preferences']['members']),3)
+        joined=await self.client.post('/api/team/gemini',json={'enabled':True},headers=headers)
+        self.assertEqual(len(joined.json()['preferences']['members']),4)
+        self.assertFalse(state['connections']['gemini']['ready'])
+        fixture_key='fixture-gemini-key-not-a-real-credential'
+        saved=await self.client.post('/api/agents/gemini/key',json={'key':fixture_key},headers=headers)
+        self.assertEqual(saved.status_code,200,saved.text)
+        self.assertTrue(saved.json()['connections']['gemini']['ready'])
+        self.assertNotIn(fixture_key,saved.text)
+        updated=(await self.client.get('/api/connection-state')).json()
+        self.assertTrue(updated['connections']['gemini']['ready'])
+        self.assertNotIn(fixture_key,json.dumps(updated))
+        await self.client.post('/api/members/gemini/remove',json={},headers=headers)
+        latest=(await self.client.get('/api/connection-state')).json()
+        self.assertTrue(latest['connections']['gemini']['ready'])
+        self.assertEqual(len(latest['preferences']['members']),3)
+        self.assertEqual(len(latest['preferences']['agents']),4)
+        # An inactive agent can still be edited, and rejoining never requires a key.
+        edited=await self.client.post('/api/agents/gemini',json={'name':'Gemini saved'},headers=headers)
+        self.assertEqual(edited.status_code,200,edited.text)
+        rejoined=await self.client.post('/api/team/gemini',json={'enabled':True},headers=headers)
+        active=next(m for m in rejoined.json()['preferences']['members'] if m['id']=='gemini')
+        self.assertEqual(active['name'],'Gemini saved')
+        self.assertEqual(preferences.get_member_key(active),fixture_key)
+        self.assertNotIn(fixture_key,rejoined.text)
+
+    async def test_partial_member_updates_preserve_other_members_and_monitor_connection(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        created=await self.client.post('/api/members/extra',json={'create':True,'name':'另一位','backend':'claude',
+            'model':'claude-haiku-5-5'},headers=headers)
+        self.assertEqual(created.status_code,200,created.text)
+        updated=await self.client.post('/api/members/chatgpt',json={'model':'gpt-6.1-sol'},headers=headers)
+        self.assertEqual(updated.status_code,200,updated.text)
+        self.assertEqual([m['id'] for m in updated.json()['preferences']['members']],['chatgpt','claude','deepseek','extra'])
+        removed=await self.client.post('/api/members/chatgpt/remove',json={},headers=headers)
+        self.assertEqual(removed.status_code,200,removed.text)
+        self.assertEqual(removed.json()['preferences']['supervisor']['provider'],'chatgpt')
+        self.assertIn('chatgpt',[a['id'] for a in removed.json()['preferences']['agents']])
+        refused=await self.client.post('/api/members/chatgpt',json={'name':'stale editor'},headers=headers)
+        self.assertEqual(refused.status_code,400)
+        rejected=await self.client.post('/api/members/claude/key',json={'key':'unused-fixture'},headers=headers)
+        self.assertEqual(rejected.status_code,400)
+
+    async def test_team_model_override_survives_disable_without_changing_library_default(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        default=preferences.load()['agents'][0]['model']
+        changed=await self.client.post('/api/members/chatgpt',json={'model':'gpt-6.1-sol'},headers=headers)
+        self.assertEqual(changed.status_code,200,changed.text)
+        self.assertEqual(changed.json()['preferences']['agents'][0]['model'],default)
+        await self.client.post('/api/team/chatgpt',json={'enabled':False},headers=headers)
+        await self.client.post('/api/agents/chatgpt',json={'model':'another-default'},headers=headers)
+        returned=await self.client.post('/api/team/chatgpt',json={'enabled':True},headers=headers)
+        current=returned.json()['preferences']
+        self.assertEqual(current['agents'][0]['model'],'another-default')
+        self.assertEqual(current['members'][0]['model'],'gpt-6.1-sol')
+        self.assertEqual(len(current['agents']),3)
+        refused=await self.client.post('/api/team/unsaved',json={'enabled':True},headers=headers)
+        self.assertEqual(refused.status_code,400)
+
+    async def test_empty_team_is_saved_but_cannot_start_workers(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        for aid in ['chatgpt','claude','deepseek']:
+            response=await self.client.post('/api/team/'+aid,json={'enabled':False},headers=headers)
+            self.assertEqual(response.status_code,200,response.text)
+        selected=preferences.load()
+        self.assertEqual(selected['members'],[])
+        self.assertEqual(len(selected['agents']),3)
+        self.assertEqual(selected['supervisor']['provider'],'chatgpt')
+        with tempfile.TemporaryDirectory() as folder:
+            rid=server.STORE.create('Empty team',folder)['id']
+            with patch.object(server.WORK,'reply') as reply:
+                response=await self.client.post('/api/rooms/'+rid+'/send',json={'text':'do work','mode':'workflow'},headers=headers)
+                self.assertEqual(response.status_code,400,response.text)
+                reply.assert_not_called()
+            self.assertEqual(server.STORE.messages(rid),[])
+        rejoined=await self.client.post('/api/team/claude',json={'enabled':True},headers=headers)
+        self.assertEqual([m['id'] for m in rejoined.json()['preferences']['members']],['claude'])
+
+    async def test_saved_inactive_agent_debug_streams_independently_with_temporary_model(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        agent={'create':True,'name':'Gemini','backend':'openai-compatible','model':'saved-default',
+            'base_url':'https://generativelanguage.googleapis.com/v1beta/openai'}
+        await self.client.post('/api/agents/gemini',json=agent,headers=headers)
+        await self.client.post('/api/agents/gemini/key',json={'key':'debug-private-fixture'},headers=headers)
+        entered=asyncio.Event();release=asyncio.Event();calls=[]
+        async def provider(sink,rid,prompt,model,phase,**kwargs):
+            calls.append((prompt,model,kwargs));mid=sink.message(rid,'gemini',model=model)
+            sink.update(mid,'partial visible reply');entered.set();await release.wait()
+            sink.update(mid,'complete visible reply','complete');return 'complete visible reply'
+        rooms_before=len(server.STORE.rooms())
+        with patch.object(debugger,'deepseek_reply',side_effect=provider):
+            response=await self.client.post('/api/agents/gemini/debug',json={'prompt':'Test only','model':'temporary-model'},headers=headers)
+            self.assertEqual(response.status_code,200,response.text);jid=response.json()['id']
+            await asyncio.wait_for(entered.wait(),2)
+            state=(await self.client.get('/api/agents/gemini/debug')).json()['jobs'][0]
+            self.assertEqual(state['status'],'running');self.assertEqual(state['output'],'partial visible reply')
+            duplicate=await self.client.post('/api/agents/gemini/debug',json={'prompt':'duplicate'},headers=headers)
+            self.assertEqual(duplicate.status_code,400)
+            release.set();await server.DEBUG.get(jid).task
+            streamed=await self.client.get('/api/debug/'+jid+'/events')
+            self.assertIn('text/event-stream',streamed.headers['content-type'])
+            self.assertIn('complete visible reply',streamed.text)
+            self.assertNotIn('debug-private-fixture',streamed.text)
+        self.assertEqual(calls[0][1],'temporary-model')
+        self.assertEqual(calls[0][2]['base_url'],agent['base_url'])
+        selected=preferences.load()
+        self.assertNotIn('gemini',[m['id'] for m in selected['members']])
+        self.assertEqual(roster.agent(selected,'gemini')['model'],'saved-default')
+        self.assertEqual(len(server.STORE.rooms()),rooms_before)
+        self.assertEqual((await self.client.get('/api/agents/claude/debug')).json()['jobs'],[])
+
+    async def test_debug_stop_cleans_adapter_and_keeps_partial_output(self):
+        headers={'X-Tiered-Token':server.TOKEN};entered=asyncio.Event();cleaned=asyncio.Event()
+        async def provider(sink,rid,*args,**kwargs):
+            mid=sink.message(rid,'chatgpt');sink.update(mid,'partial');entered.set()
+            try:await asyncio.Event().wait()
+            finally:cleaned.set()
+        with patch.object(debugger,'cli_reply',side_effect=provider):
+            response=await self.client.post('/api/agents/chatgpt/debug',json={'prompt':'test'},headers=headers)
+            jid=response.json()['id'];await asyncio.wait_for(entered.wait(),2)
+            stopped=await self.client.post('/api/debug/'+jid+'/cancel',json={},headers=headers)
+            self.assertEqual(stopped.json()['status'],'stopped');self.assertTrue(cleaned.is_set())
+            self.assertEqual(stopped.json()['output'],'partial')
+            self.assertFalse(stopped.json()['error'])
+
+    async def test_debug_requires_saved_agent_and_reports_errors_without_key_leak(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        missing=await self.client.post('/api/agents/unsaved/debug',json={'prompt':'test'},headers=headers)
+        self.assertEqual(missing.status_code,400)
+        with patch.object(preferences,'get_member_key',return_value=''):
+            no_key=await self.client.post('/api/agents/deepseek/debug',json={'prompt':'test'},headers=headers)
+            self.assertEqual(no_key.status_code,400)
+        with patch.object(preferences,'get_member_key',return_value='private-debug-fixture'),patch.object(debugger,'deepseek_reply',side_effect=RuntimeError('failed private-debug-fixture')):
+            response=await self.client.post('/api/agents/deepseek/debug',json={'prompt':'test'},headers=headers)
+            jid=response.json()['id'];await server.DEBUG.get(jid).task
+            history=await self.client.get('/api/agents/deepseek/debug')
+            self.assertNotIn('private-debug-fixture',history.text)
+            self.assertEqual(history.json()['jobs'][0]['status'],'error')
+            self.assertIn('[密钥已隐藏]',history.json()['jobs'][0]['error'])
+
+    async def test_polling_reuses_cli_auth_status_and_explicit_refresh_rechecks_it(self):
+        auth=self.active_patches[-1]
+        await self.client.get('/api/connection-state')
+        await self.client.get('/api/connection-state')
+        self.assertEqual(auth.await_count,1)
+        await self.client.get('/api/connection-state?refresh=1')
+        self.assertEqual(auth.await_count,2)
+
+    async def test_bootstrap_refreshes_shared_catalog_each_time_and_key_save_updates_inactive_agent(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        first=(await self.client.get('/api/bootstrap')).json()
+        self.assertTrue(first['model_catalog']['refreshing'])
+        await asyncio.gather(*server.MODELS.tasks.values())
+        ready=(await self.client.get('/api/models')).json()
+        self.assertEqual(ready['agents']['chatgpt']['models'][0]['id'],'fixture-discovered-model')
+        called=self.discovery.await_count
+        await self.client.get('/api/bootstrap');await asyncio.gather(*server.MODELS.tasks.values())
+        self.assertGreater(self.discovery.await_count,called)
+        gemini={'create':True,'name':'Gemini','backend':'openai-compatible','model':'keep-this-default',
+            'base_url':'https://generativelanguage.googleapis.com/v1beta/openai'}
+        await self.client.post('/api/agents/gemini',json=gemini,headers=headers)
+        response=await self.client.post('/api/agents/gemini/key',json={'key':'metadata-key-fixture'},headers=headers)
+        self.assertTrue(response.json()['model_catalog']['refreshing'])
+        await asyncio.gather(*server.MODELS.tasks.values())
+        catalog=(await self.client.get('/api/models')).json()['agents']['gemini']
+        self.assertEqual(catalog['models'][0]['id'],'fixture-discovered-model')
+        self.assertNotIn('gemini',[m['id'] for m in preferences.load()['members']])
+        self.assertEqual(roster.agent(preferences.load(),'gemini')['model'],'keep-this-default')
+
+    async def test_usage_endpoint_reads_inactive_saved_connection_without_changing_team_or_history(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        await self.client.post('/api/members/deepseek/remove',json={},headers=headers)
+        await self.client.post('/api/agents/deepseek/key',json={'key':'usage-key-fixture'},headers=headers)
+        await asyncio.gather(*server.USAGE.tasks.values())
+        rooms_before=len(server.STORE.rooms());saved=preferences.PREFS.read_bytes()
+        rejected=await self.client.post('/api/agents/deepseek/usage',json={})
+        self.assertEqual(rejected.status_code,403)
+        self.read_usage.return_value={'status':'ready','plan':'','windows':[],'balances':[{'currency':'CNY','total_balance':'12.50'}],'detail':'fixture balance'}
+        started=await self.client.post('/api/agents/deepseek/usage',json={},headers=headers)
+        self.assertEqual(started.status_code,200,started.text)
+        await asyncio.gather(*server.USAGE.tasks.values())
+        state=(await self.client.get('/api/usage')).json()['agents']['deepseek']
+        self.assertEqual(state['balances'][0]['total_balance'],'12.50')
+        self.assertNotIn('usage-key-fixture',json.dumps(state))
+        self.assertEqual(preferences.PREFS.read_bytes(),saved)
+        self.assertNotIn('deepseek',[m['id'] for m in preferences.load()['members']])
+        self.assertEqual(len(server.STORE.rooms()),rooms_before)
 
     async def test_mutation_requires_local_origin_and_token(self):
         denied=await self.client.post('/api/rooms',json={})
@@ -119,6 +396,191 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             finally:server.WORK.running.pop(rid,None)
             data=(await self.client.get('/api/rooms/'+rid)).json()
             self.assertIn('不要改文件',data['policy']['text']);self.assertEqual(data['policy']['revision'],2)
+
+
+class ModelCatalogTests(unittest.IsolatedAsyncioTestCase):
+    def agent(self,aid='gemini',url='https://generativelanguage.googleapis.com/v1beta/openai'):
+        return dict(id=aid,backend='openai-compatible',name=aid,model='saved-default',effort='high',base_url=url,no_auth=False)
+
+    async def test_only_the_four_official_providers_are_queried(self):
+        for url,provider in [('https://api.openai.com/v1','openai'),('https://api.anthropic.com/v1','claude-api'),
+            ('https://generativelanguage.googleapis.com/v1beta/openai','gemini'),('https://api.deepseek.com','deepseek')]:
+            self.assertEqual(model_catalog.provider_for(self.agent(url=url)),provider)
+        for url in ['https://example.com/v1','https://api.openai.com.example.com/v1','http://localhost:8000/v1']:
+            self.assertIsNone(model_catalog.provider_for(self.agent(url=url)))
+
+    async def test_claude_api_metadata_pagination_uses_its_own_authentication(self):
+        calls=[]
+        def handler(request):
+            calls.append(request);following=request.url.params.get('after_id')
+            return httpx.Response(200,json={'data':[{'id':'claude-page-two' if following else 'claude-page-one','display_name':'Claude'}],
+                'has_more':not following,'last_id':'cursor-one'})
+        real=httpx.AsyncClient
+        with patch.object(model_catalog.httpx,'AsyncClient',side_effect=lambda **kwargs:real(**kwargs,transport=httpx.MockTransport(handler))):
+            result=await model_catalog.discover(self.agent(url='https://api.anthropic.com/v1'),'claude-private-fixture')
+        self.assertEqual([m['id'] for m in result],['claude-page-one','claude-page-two'])
+        self.assertEqual(calls[0].headers['x-api-key'],'claude-private-fixture')
+        self.assertNotIn('authorization',calls[0].headers)
+        self.assertTrue(all(r.method=='GET' and r.url.path=='/v1/models' for r in calls))
+
+    async def test_connection_deduplication_credential_isolation_and_four_provider_limit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            catalog=model_catalog.ModelCatalog(Path(folder)/'catalog.json')
+            agents=[self.agent('one'),self.agent('same'),self.agent('other'),self.agent('qwen','https://dashscope.aliyuncs.com/compatible-mode/v1')]
+            keys={'one':'private-one','same':'private-one','other':'private-other','qwen':'private-qwen'}
+            async def discover(agent,key):return [{'id':agent['id']+'-model'}]
+            with patch.object(preferences,'get_member_key',side_effect=lambda a:keys[a['id']]),patch.object(model_catalog,'discover',side_effect=discover) as fetch:
+                settings={'agents':agents,'members':[]}
+                pending=catalog.request_refresh(settings)
+                self.assertEqual(len(pending),2)
+                self.assertEqual(catalog.request_refresh(settings),pending)
+                await asyncio.gather(*pending)
+                snap=catalog.snapshot(settings)['agents']
+                self.assertEqual(fetch.await_count,2)
+                self.assertEqual(snap['one']['models'],snap['same']['models'])
+                self.assertNotEqual(snap['one']['models'],snap['other']['models'])
+                self.assertEqual(snap['qwen']['state'],'manual')
+                self.assertFalse(any(key in catalog.path.read_text() for key in keys.values()))
+                await asyncio.gather(*catalog.request_refresh(settings))
+                self.assertEqual(fetch.await_count,4)
+                self.assertEqual([a['model'] for a in agents],['saved-default']*4)
+            await catalog.close()
+
+    async def test_failed_refresh_retains_disk_cache_without_leaking_errors_or_crossing_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'catalog.json';catalog=model_catalog.ModelCatalog(path);agent=self.agent();settings={'agents':[agent]}
+            with patch.object(preferences,'get_member_key',return_value='account-one-private'):
+                with patch.object(model_catalog,'discover',return_value=[{'id':'known-model'},{'id':'known-model'},{'id':'bad;model'}]):
+                    await asyncio.gather(*catalog.request_refresh(settings))
+                self.assertEqual(len(catalog.snapshot(settings)['agents']['gemini']['models']),1)
+                reloaded=model_catalog.ModelCatalog(path)
+                with patch.object(model_catalog,'discover',side_effect=RuntimeError('connection account-one-private failed')):
+                    await asyncio.gather(*reloaded.request_refresh(settings))
+                snap=reloaded.snapshot(settings)
+                self.assertEqual(snap['agents']['gemini']['state'],'error')
+                self.assertEqual(snap['agents']['gemini']['models'][0]['id'],'known-model')
+                self.assertNotIn('account-one-private',json.dumps(snap))
+                await reloaded.close()
+            with patch.object(preferences,'get_member_key',return_value='different-account-private'):
+                self.assertEqual(catalog.snapshot(settings)['agents']['gemini']['models'],[])
+            await catalog.close()
+
+    async def test_disabled_gemini_api_has_specific_error_and_trusted_action_link(self):
+        with tempfile.TemporaryDirectory() as folder:
+            catalog=model_catalog.ModelCatalog(Path(folder)/'catalog.json');agent=self.agent();settings={'agents':[agent]}
+            error=RuntimeError('private-credential');error.status_code=403
+            error.body={'message':'Gemini API has not been used in project 123456789 before or it is disabled. Enable https://console.example.invalid/generativelanguage.googleapis.com/overview.'}
+            with patch.object(preferences,'get_member_key',return_value='private-credential'),patch.object(model_catalog,'discover',side_effect=error):
+                await asyncio.gather(*catalog.request_refresh(settings))
+                entry=catalog.snapshot(settings)['agents']['gemini']
+                self.assertIn('尚未启用 Gemini API',entry['error'])
+                self.assertEqual(entry['action_url'],'https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com?project=123456789')
+                self.assertNotIn('private-credential',json.dumps(entry))
+            await catalog.close()
+
+    async def test_blocked_gemini_key_points_to_credential_restrictions(self):
+        with tempfile.TemporaryDirectory() as folder:
+            catalog=model_catalog.ModelCatalog(Path(folder)/'catalog.json');settings={'agents':[self.agent()]}
+            error=RuntimeError('private-credential');error.status_code=403
+            error.body={'message':'ListModels are blocked','details':[{'reason':'API_KEY_SERVICE_BLOCKED','metadata':{'consumer':'projects/123456789'}}]}
+            with patch.object(preferences,'get_member_key',return_value='private-credential'),patch.object(model_catalog,'discover',side_effect=error):
+                await asyncio.gather(*catalog.request_refresh(settings))
+                entry=catalog.snapshot(settings)['agents']['gemini']
+                self.assertIn('API_KEY_SERVICE_BLOCKED',entry['error'])
+                self.assertEqual(entry['action_url'],'https://console.cloud.google.com/apis/credentials?project=123456789')
+                self.assertEqual(entry['action_label'],'检查 Gemini 密钥限制')
+            await catalog.close()
+
+    async def test_changed_connection_does_not_receive_late_previous_catalog(self):
+        with tempfile.TemporaryDirectory() as folder:
+            catalog=model_catalog.ModelCatalog(Path(folder)/'catalog.json');old_started=asyncio.Event();release=asyncio.Event()
+            agent=self.agent();settings={'agents':[agent]};key=['old-key']
+            async def discover(agent,secret):
+                if secret=='old-key':old_started.set();await release.wait()
+                return [{'id':secret+'-model'}]
+            with patch.object(preferences,'get_member_key',side_effect=lambda a:key[0]),patch.object(model_catalog,'discover',side_effect=discover):
+                old=catalog.request_refresh(settings);await asyncio.wait_for(old_started.wait(),2)
+                key[0]='new-key';await asyncio.gather(*catalog.request_refresh(settings))
+                release.set();await asyncio.gather(*old)
+                self.assertEqual(catalog.snapshot(settings)['agents']['gemini']['models'][0]['id'],'new-key-model')
+            await catalog.close()
+
+    async def test_api_discovery_uses_metadata_endpoint_without_inference(self):
+        calls=[]
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(200,json={'object':'list','data':[{'id':'live-directory-model','object':'model','created':1,'owned_by':'fixture'}]})
+        real=model_catalog.AsyncOpenAI
+        def client(**kwargs):return real(**kwargs,http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        with patch.object(model_catalog,'AsyncOpenAI',side_effect=client):
+            result=await model_catalog.discover(self.agent(),'private-fixture')
+        self.assertEqual(result[0]['id'],'live-directory-model')
+        self.assertEqual(str(calls[0].url),'https://generativelanguage.googleapis.com/v1beta/openai/models')
+        self.assertEqual(calls[0].method,'GET')
+        self.assertEqual(calls[0].headers['authorization'],'Bearer private-fixture')
+
+
+class AccountUsageTests(unittest.IsolatedAsyncioTestCase):
+    def agent(self,aid='deepseek',backend='deepseek',url='https://api.deepseek.com'):
+        return dict(id=aid,name=aid,backend=backend,model='test-model',effort='high',base_url=url,no_auth=False)
+
+    async def test_plan_windows_distinguish_unknown_from_zero_and_keep_remaining_correct(self):
+        data={'rateLimitsByLimitId':{'codex':{'planType':'plus','primary':{'usedPercent':28,'windowDurationMins':300,'resetsAt':1792561301},'secondary':{'usedPercent':None,'windowDurationMins':10080}}}}
+        value=account_usage.codex_meter(data)
+        self.assertEqual(len(value['windows']),1);self.assertEqual(value['windows'][0]['remaining_percent'],72)
+        self.assertNotIn('accountId',value)
+        claude=account_usage.claude_meter({'subscription_type':'pro','rate_limits_available':True,'rate_limits':{'five_hour':{'utilization':0,'resets_at':None},'seven_day':{'utilization':81,'resets_at':'2026-10-24T10:59:59Z'}}})
+        self.assertEqual([w['remaining_percent'] for w in claude['windows']],[100,19])
+        unavailable=account_usage.claude_meter({'rate_limits_available':False,'rate_limits':{'five_hour':{'utilization':0}}})
+        self.assertEqual(unavailable['windows'],[]);self.assertEqual(unavailable['status'],'unavailable')
+
+    async def test_exact_credential_deduplication_and_ttl_without_external_balance_fabrication(self):
+        agents=[self.agent('one'),self.agent('same'),self.agent('other'),self.agent('gemini','openai-compatible','https://generativelanguage.googleapis.com/v1beta/openai')]
+        keys={'one':'private-one','same':'private-one','other':'private-other','gemini':'private-gemini'}
+        async def read(agent,key):return {'status':'ready','plan':'','windows':[],'balances':[{'currency':'CNY','total_balance':'12.50' if key=='private-one' else '8.00'}],'detail':'balance'}
+        monitor=account_usage.UsageMonitor();settings={'agents':agents}
+        with patch.object(preferences,'get_member_key',side_effect=lambda a:keys[a['id']]),patch.object(account_usage,'read_account',side_effect=read) as reader:
+            tasks=monitor.request_refresh(settings);self.assertEqual(len(tasks),2)
+            self.assertEqual(monitor.request_refresh(settings),tasks);await asyncio.gather(*tasks)
+            state=monitor.snapshot(settings)['agents']
+            self.assertEqual(reader.await_count,2)
+            self.assertEqual(state['one']['balances'],state['same']['balances'])
+            self.assertNotEqual(state['one']['balances'],state['other']['balances'])
+            self.assertEqual(state['gemini']['status'],'external');self.assertEqual(state['gemini']['balances'],[])
+            self.assertEqual(monitor.request_refresh(settings),[])
+            await asyncio.gather(*monitor.request_refresh(settings,force=True));self.assertEqual(reader.await_count,4)
+            self.assertTrue(all(k not in json.dumps(state) for k in keys.values()))
+            with patch.object(account_usage,'read_account',side_effect=RuntimeError('private-one')):
+                await asyncio.gather(*monitor.request_refresh(settings,force=True))
+            failed=monitor.snapshot(settings)['agents']['one']
+            self.assertEqual(failed['status'],'error');self.assertEqual(failed['balances'][0]['total_balance'],'12.50')
+            self.assertNotIn('private-one',json.dumps(failed))
+            keys['one']='rotated-private-key'
+            self.assertEqual(monitor.snapshot(settings)['agents']['one']['balances'],[])
+        await monitor.close()
+
+    async def test_deepseek_balance_reads_only_official_endpoint_and_keeps_actual_zero(self):
+        calls=[]
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(200,json={'is_available':False,'balance_infos':[{'currency':'CNY','total_balance':'0.00','granted_balance':'0.00','topped_up_balance':'0.00'}]})
+        real=httpx.AsyncClient
+        with patch.object(account_usage.httpx,'AsyncClient',side_effect=lambda **kwargs:real(**kwargs,transport=httpx.MockTransport(handler))):
+            result=await account_usage.read_account(self.agent(),'private-fixture')
+        self.assertEqual(result['status'],'ready');self.assertEqual(result['balances'][0]['total_balance'],'0.00')
+        self.assertEqual(calls[0].method,'GET');self.assertEqual(str(calls[0].url),'https://api.deepseek.com/user/balance')
+        self.assertEqual(calls[0].headers['authorization'],'Bearer private-fixture')
+        self.assertNotIn('private-fixture',json.dumps(result))
+
+    async def test_usage_refresh_can_cancel_without_leaving_readers_running(self):
+        started=asyncio.Event();cleaned=asyncio.Event();monitor=account_usage.UsageMonitor()
+        async def reader(agent,key):
+            started.set()
+            try:await asyncio.Event().wait()
+            finally:cleaned.set()
+        with patch.object(preferences,'get_member_key',return_value='private'),patch.object(account_usage,'read_account',side_effect=reader):
+            monitor.request_refresh({'agents':[self.agent()]});await asyncio.wait_for(started.wait(),2)
+            await monitor.close();self.assertTrue(cleaned.is_set())
 
 
 class RecoveryTests(unittest.IsolatedAsyncioTestCase):
@@ -204,7 +666,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             steps=[decision('ask',['chatgpt','deepseek'],parallel=True,share_previous=False),decision('execute',['claude'],task=task),decision('finish')]
             steps[-1]['checks'][0].update(status='met',evidence='两方独立发言，Claude 写入且实际 Node 验收通过',evidence_ids=['E01','E02','E03'])
             calls=[];work=workflows.Workflows(store)
-            async def reply(rid,provider,prompt,root,settings,phase,coding=False):
+            async def reply(rid,provider,prompt,root,settings,phase,coding=False,**context):
                 calls.append((provider,phase,coding,prompt))
                 if provider=='supervisor':return json.dumps(steps.pop(0))
                 if coding:(root/'result.txt').write_text('OK',encoding='utf-8');return 'STATUS: DONE'
@@ -218,7 +680,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue((root/'.tiered/REPORT.md').exists())
             worker_calls=[c for c in calls if c[0]!='supervisor']
             self.assertEqual([c[0] for c in worker_calls],['chatgpt','deepseek','claude'])
-            self.assertTrue(worker_calls[-1][2]);self.assertIn('此前其他工作者的答复未提供',worker_calls[0][3])
+            self.assertTrue(worker_calls[-1][2]);self.assertNotIn('此前其他工作者的答复未提供',worker_calls[0][3])
             events=store.events(rid,0);self.assertTrue(any(e['type']=='test' and e['exit_code']==0 for e in events))
             store.db.close()
 
@@ -226,7 +688,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);store=Store(root/'state');rid=store.create('Rules',str(root))['id'];work=workflows.Workflows(store)
             calls=[];n=0
-            async def reply(rid,provider,prompt,root,settings,phase,coding=False):
+            async def reply(rid,provider,prompt,root,settings,phase,coding=False,**context):
                 nonlocal n
                 calls.append(provider)
                 if provider=='supervisor':
@@ -245,6 +707,54 @@ class ConfigurableTeamTests(unittest.IsolatedAsyncioTestCase):
     def custom(self,mid='qwen',name='自定义成员'):
         return dict(id=mid,name=name,backend='openai-compatible',model='custom-model',effort='high',base_url='https://example.invalid/v1',no_auth=False)
 
+    async def test_v1_migration_retains_agent_ids_encrypted_keys_and_original_backup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            with patch.object(preferences,'STATE',base),patch.object(preferences,'PREFS',base/'prefs.json'),patch.object(preferences,'PROFILE',base/'profile.toml'):
+                old=json.loads(json.dumps(preferences.DEFAULTS));old['members']=[self.custom()]
+                old['supervisor']['provider']='qwen';old['member_names']={'old-agent':'历史名字'}
+                raw=json.dumps(old,ensure_ascii=False).encode('utf-8');preferences.PREFS.write_bytes(raw)
+                preferences.save_member_key('qwen','migration-fixture-private')
+                keyfile=base/'credentials/qwen.dpapi';encrypted=keyfile.read_bytes()
+                migrated=preferences.save({})
+                self.assertEqual(migrated['members'][0]['id'],'qwen')
+                self.assertEqual(preferences.get_member_key(migrated['agents'][0]),'migration-fixture-private')
+                self.assertEqual(keyfile.read_bytes(),encrypted)
+                self.assertEqual((base/'backups/preferences-before-agent-library.json').read_bytes(),raw)
+                stored=json.loads(preferences.PREFS.read_text(encoding='utf-8'))
+                self.assertEqual(stored['schema_version'],2);self.assertNotIn('members',stored)
+                self.assertNotIn('migration-fixture-private',json.dumps(stored))
+                preferences.save({'team':[]})
+                reloaded=preferences.load()
+                self.assertEqual(reloaded['members'],[]);self.assertEqual(len(reloaded['agents']),1)
+                self.assertEqual(reloaded['member_names']['old-agent'],'历史名字')
+                self.assertTrue((await roster.connections(reloaded))['qwen']['ready'])
+
+    async def test_previously_removed_builtin_returns_to_library_without_enabling_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            with patch.object(preferences,'STATE',base),patch.object(preferences,'PREFS',base/'prefs.json'),patch.object(preferences,'PROFILE',base/'profile.toml'):
+                old=json.loads(json.dumps(preferences.DEFAULTS));old['members']=preferences.default_members(old)[:2]
+                old['member_names']={'deepseek':'我的 DeepSeek'}
+                preferences.PREFS.write_text(json.dumps(old),encoding='utf-8')
+                selected=preferences.save({})
+                self.assertEqual([m['id'] for m in selected['members']],['chatgpt','claude'])
+                recovered=next(a for a in selected['agents'] if a['id']=='deepseek')
+                self.assertEqual(recovered['name'],'我的 DeepSeek')
+                self.assertEqual(recovered['base_url'],'https://api.deepseek.com')
+
+    async def test_vendor_grouping_does_not_merge_different_credentials(self):
+        a=self.custom('gemini1');a['base_url']='https://generativelanguage.googleapis.com/v1beta/openai'
+        b={**a,'id':'gemini2','name':'Gemini 第二个账号'}
+        agents=preferences.validate_members([a,b])
+        self.assertEqual(agents[0]['group'],'Google / Gemini')
+        self.assertEqual(agents[0]['group'],agents[1]['group'])
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(preferences,'STATE',Path(folder)):
+                preferences.save_member_key('gemini1','account-one-fixture')
+                self.assertEqual(preferences.get_member_key(agents[1]),'')
+                self.assertEqual(preferences.get_member_key(agents[0]),'account-one-fixture')
+
     async def test_configured_team_persists_duplicates_and_removed_member_history(self):
         with tempfile.TemporaryDirectory() as folder:
             base=Path(folder)
@@ -255,24 +765,29 @@ class ConfigurableTeamTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(config['supervisor']['model'],'monitor-model')
                 preferences.save({'members':[a]})
                 self.assertEqual(preferences.load()['member_names']['qwen2'],'同一家另一位')
-                with self.assertRaises(ValueError):preferences.save({'members':[b]})
+                preferences.save({'members':[b]})
+                self.assertEqual(preferences.load()['supervisor']['provider'],'qwen')
+                self.assertIn('qwen',[a['id'] for a in preferences.load()['agents']])
+                with self.assertRaises(ValueError):preferences.save({'supervisor':{'provider':'unsaved'}})
                 with self.assertRaises(ValueError):preferences.validate_members([a,a])
                 a['base_url']='https://user:secret@example.invalid'
                 with self.assertRaises(ValueError):preferences.validate_members([a])
 
     async def test_generic_api_routes_selected_url_model_and_private_key(self):
-        m=self.custom();selected=preferences.load();selected['members']=[m];selected['supervisor'].update(provider='qwen',model='independent-monitor')
+        m=self.custom();selected=preferences.load();selected['members']=[m];selected['agents']=[m];selected['supervisor'].update(provider='qwen',model='independent-monitor')
         requests=[]
         def handler(request):
             requests.append(request)
-            chunk={'id':'fixture','object':'chat.completion.chunk','created':1,'model':'custom-model','choices':[{'index':0,'delta':{'content':'连接检查成功'},'finish_reason':None}]}
+            chunk={'id':'fixture','object':'chat.completion.chunk','created':1,'model':'custom-model','choices':[{'index':0,'delta':{'content':'连接检查成功'},'finish_reason':'stop'}]}
             return httpx.Response(200,headers={'content-type':'text/event-stream'},content=('data: '+json.dumps(chunk)+'\n\ndata: [DONE]\n\n').encode())
         real=engines.AsyncOpenAI
         def client(**kwargs):return real(**kwargs,http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
         with tempfile.TemporaryDirectory() as folder:
             store=Store(folder);rid=store.create('generic API',folder)['id']
-            with patch.object(engines,'AsyncOpenAI',side_effect=client),patch.object(preferences,'get_member_key',return_value='private-fixture-key'):
+            with patch('provider_sessions.AsyncOpenAI',side_effect=client),patch.object(preferences,'get_member_key',return_value='private-fixture-key'):
                 await roster.reply(store,rid,'qwen','hello',Path(folder),selected,'讨论')
+                selected['members']=[]
+                with self.assertRaises(ValueError):await roster.reply(store,rid,'qwen','must not dispatch',Path(folder),selected,'讨论')
                 await roster.reply(store,rid,'supervisor','hello',Path(folder),selected,'监督')
             self.assertEqual(str(requests[0].url),'https://example.invalid/v1/chat/completions')
             self.assertEqual(requests[0].headers['authorization'],'Bearer private-fixture-key')

@@ -1,0 +1,29 @@
+- heading "编辑已保存的 Agent" [level=2, ref=e582]
+- button "×" [ref=e583]
+- textbox "Agent 名称" [required, ref=e584]: ChatGPT
+- combobox "连接方式" [expanded=false, ref=e585]: ChatGPT · 本机 CLI 登录
+  - option "ChatGPT · 本机 CLI 登录" [selected, ref=e591]
+  - option "Claude · 本机 CLI 登录" [ref=e592]
+  - option "DeepSeek · 官方 API" [ref=e593]
+  - option "自定义 · OpenAI 兼容 API" [ref=e594]
+- combobox "服务商 / 分组" [ref=e586]: OpenAI / ChatGPT
+- combobox "默认模型 ID" [expanded=false, ref=e587]: GPT-6.1-Sol · gpt-6.1-sol
+  - option "请选择模型" [ref=e595]
+  - option "GPT-6.1-Sol · gpt-6.1-sol" [selected, ref=e596]
+  - option "GPT-6-Astra · gpt-6-astra" [ref=e597]
+  - option "GPT-6-Sol · gpt-6-sol" [ref=e598]
+  - option "GPT-6-Luna · gpt-6-luna" [ref=e599]
+  - option "GPT-5.6-Sol · gpt-5.6-sol" [ref=e600]
+  - option "GPT-5.6-Terra · gpt-5.6-terra" [ref=e601]
+  - option "GPT-5.6-Luna · gpt-5.6-luna" [ref=e602]
+  - option "＋ 自定义模型 ID" [ref=e603]
+- combobox "推理强度 官方默认值: low" [expanded=false, ref=e590]: ultra
+  - option "未指定（不发送强度参数）" [ref=e611]
+  - option "low" [ref=e612]
+  - option "medium" [ref=e613]
+  - option "high" [ref=e614]
+  - option "xhigh" [ref=e615]
+  - option "max" [ref=e616]
+  - option "ultra" [selected, ref=e617]
+- button "取消" [ref=e588]
+- button "保存 Agent" [ref=e589]

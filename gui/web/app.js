@@ -1,8 +1,16 @@
+import { effortModel, nextEffort, renderReasoningEffort } from './reasoning-effort.js';
+import { AccountUsageView } from './account-usage.js';
+import { ConnectionsPanel, groupAgents } from './connections.js';
+import { AgentDebugConsole } from './debug-console.js';
+import { catalogText, modelLabel, ModelSelect } from './model-directory.js';
 const $=id=>document.getElementById(id);
 const names={chatgpt:'ChatGPT',claude:'Claude',deepseek:'DeepSeek',supervisor:'监工',you:'你',system:'系统'};
+const usageViews=new Map();
+let contextEntries=[];
+let memberEffort=null,roomMemberEffort=null;
 const letters={chatgpt:'G',claude:'C',deepseek:'D',supervisor:'M',you:'你'};
 const statuses={idle:'就绪',running:'运行中',paused:'等待继续',complete:'已完成',partial:'部分完成',blocked:'需要处理',stopped:'已停止',interrupted:'上次运行已中断'};
-const app={token:'',prefs:null,catalogs:{},connections:{},rooms:[],room:null,policy:null,events:null,messages:new Map(),phaseHistory:[],customProvider:null,editMember:null,memberCatalogs:{},evidenceMap:{},lastActivity:0};
+const app={token:'',prefs:null,roomSettings:null,roomEpoch:0,removing:false,editRoomMember:null,modelCatalog:{agents:{},refreshing:false},connections:{},logins:{},rooms:[],room:null,policy:null,events:null,messages:new Map(),phaseHistory:[],customProvider:null,editMember:null,modelPoll:null,modelsBusy:false,catalogEpoch:0,evidenceMap:{},lastActivity:0,pendingSaves:0,syncBusy:false,configEpoch:0,usageData:{agents:{},refreshing:false},usagePoll:null,usageBusy:false,usageEpoch:0};
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,4500)}
@@ -11,59 +19,218 @@ function bind(id,handler){$(id).addEventListener('click',async event=>{try{await
 function textHtml(text){const value=String(text);const pattern=/```[^\n]*\n([\s\S]*?)(?:```|$)/g;let html='',offset=0;const prose=part=>escape(part).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/^#{1,4} (.+)$/gm,'<h4>$1</h4>');for(const match of value.matchAll(pattern)){html+=prose(value.slice(offset,match.index))+'<pre>'+escape(match[1])+'</pre>';offset=match.index+match[0].length}return html+prose(value.slice(offset))}
 
 const backendLabels={chatgpt:'ChatGPT CLI',claude:'Claude CLI',deepseek:'DeepSeek API','openai-compatible':'兼容 API'};
-const getMember=id=>app.prefs.members.find(m=>m.id===id);
+const roomPrefs=()=>app.roomSettings||{...app.prefs,members:[],team:[]};
+const getMember=id=>roomPrefs().members.find(m=>m.id===id);
+const getAgent=id=>app.prefs.agents.find(m=>m.id===id);
 const isCli=m=>['chatgpt','claude'].includes(m.backend);
-const modelList=m=>app.memberCatalogs[m.id]||app.catalogs[m.backend]||[];
-const avatarClass=id=>getMember(id)?.backend==='openai-compatible'?'custom':getMember(id)?.backend||id;
+const getCatalog=m=>app.modelCatalog.agents[m.id]||(isCli(m)?app.modelCatalog.agents[app.prefs.agents.find(a=>a.backend===m.backend)?.id]:undefined);
+const modelList=m=>getCatalog(m)?.models||[];
+const avatarClass=id=>getAgent(id)?.backend==='openai-compatible'?'custom':getAgent(id)?.backend||id;
 const letter=id=>letters[id]||(names[id]||id).slice(0,1).toUpperCase();
-function renderConnections(){let count=0;for(const m of app.prefs.members){const item=app.connections[m.id]||{};if(item.ready)count++;const dot=$('state-'+m.id);if(dot){dot.className='provider-state'+(item.ready?' ready':'');dot.title=item.detail||'尚未检查'}}for(const backend of ['chatgpt','claude','deepseek']){const item=app.prefs.members.find(m=>m.backend===backend);const label=$('auth-'+backend);if(label)label.textContent=app.connections[item?.id]?.detail||'在团队配置中添加此连接'}$('connection-count').textContent=count+'/'+app.prefs.members.length}
+function renderConnections(){let count=0;for(const m of app.prefs.agents){const item=app.connections[m.id]||{};if(item.ready)count++;const dot=$('state-'+m.id);if(dot){dot.className='provider-state'+(item.ready?' ready':'');dot.title=item.detail||'尚未检查'}}$('connection-count').textContent=count+'/'+app.prefs.agents.length;$('connection-count').title='连接已配置 '+count+' 位 / 共保存 '+app.prefs.agents.length+' 位 Agent';connectionPanel.render(app.prefs.agents,app.connections,app.modelCatalog.agents,app.usageData.agents,app.logins)}
+const connectionPanel=new ConnectionsPanel($('connection-members'),{
+ onSaveKey:async(id,key)=>{await queueMutation('/agents/'+id+'/key',{key})},
+ onLogin:async provider=>{const data=await api('/login/'+provider,{});app.logins[provider]=data;renderConnections();return data.message},
+ onEdit:id=>memberDialog(id),
+ onDebug:id=>debugConsole.open(getAgent(id)),
+ onUsageRefresh:id=>refreshUsage(id)
+});
+const memberModel=new ModelSelect($('member-model'),$('member-custom-model'),$('member-custom-model-wrap'));
+const roomMemberModel=new ModelSelect($('room-member-model'),$('room-member-custom-model'),$('room-member-custom-wrap'));
+const debugConsole=new AgentDebugConsole($('debug-dialog'),{api,models:modelList,catalog:getCatalog});
 function renderRooms(){const host=$('rooms');host.innerHTML='';for(const room of app.rooms){const button=document.createElement('button');button.className='room-link'+(app.room?.id===room.id?' active':'');button.title=room.title;button.innerHTML='<strong>'+escape(room.title)+'</strong><span>'+escape(statuses[room.status]||room.status)+' · '+escape(room.project.split(/[\\/]/).pop())+'</span>';button.onclick=()=>openRoom(room.id).catch(e=>toast(e.message));host.append(button)}}
-function renderProviders(){Object.assign(names,app.prefs.member_names||{});for(const m of app.prefs.members)names[m.id]=m.name;const target=$('target');const selected=target.value;target.innerHTML='<option value="all">全部成员依次回复</option><option value="supervisor">监工（补充合作要求）</option>'+app.prefs.members.map(m=>'<option value="'+m.id+'">'+escape(m.name)+'</option>').join('');target.value=[...target.options].some(o=>o.value===selected)?selected:'all';const host=$('providers');host.innerHTML='';for(const m of app.prefs.members){const provider=m.id;const node=document.createElement('section');node.className='provider';node.innerHTML='<div class="provider-top"><span class="avatar '+avatarClass(provider)+'">'+escape(letter(provider))+'</span><div><strong>'+escape(m.name)+'</strong><span class="sub">'+escape(backendLabels[m.backend])+'</span></div><span id="state-'+provider+'" class="provider-state"></span><button class="member-edit" aria-label="编辑 '+escape(m.name)+'">⋯</button></div><select id="model-'+provider+'" aria-label="'+escape(m.name)+' 模型"></select>'+(isCli(m)?'<label class="effort-row"><span>推理强度</span><select id="effort-'+provider+'" aria-label="'+escape(m.name)+' 推理强度"></select></label>':'');host.append(node);node.querySelector('.member-edit').onclick=()=>memberDialog(provider);renderModel(provider);$('model-'+provider).onchange=async()=>{try{const value=$('model-'+provider).value;if(value==='__custom'){customDialog(provider);return}m.model=value;renderEffort(provider);await savePrefs()}catch(e){toast(e.message)}};if(isCli(m))$('effort-'+provider).onchange=async()=>{try{m.effort=$('effort-'+provider).value;await savePrefs()}catch(e){toast(e.message)}}}
-const welcomeAvatars=document.querySelector('#welcome .welcome-avatars');if(welcomeAvatars)welcomeAvatars.innerHTML=app.prefs.members.slice(0,6).map(m=>'<span class="avatar '+avatarClass(m.id)+'">'+escape(letter(m.id))+'</span>').join('')+'<span class="avatar supervisor">M</span>';$('pause-before').checked=app.prefs.pause_before_execution;renderSupervisor();renderPolicy();renderConnections()}
+function renderProviders(){$('roster').hidden=!app.room;$('roster').parentElement.classList.toggle('no-room',!app.room);$('team-top').hidden=!app.room;$('policy-top').hidden=!app.room;Object.assign(names,app.prefs.member_names||{});for(const m of app.prefs.agents)names[m.id]=m.name;const target=$('target');const selected=target.value;target.innerHTML='<option value="all">全部讨论成员依次回复</option><option value="supervisor">监工（补充合作要求）</option>'+roomPrefs().members.filter(m=>m.id!==roomPrefs().executor).map(m=>'<option value="'+m.id+'">'+escape(m.name)+'</option>').join('');target.value=[...target.options].some(o=>o.value===selected)?selected:'all';const host=$('providers');usageViews.clear();host.innerHTML=roomPrefs().members.length?'':'<p class="empty-team">此协作室暂无成员。点击 ＋ 邀请已保存的 Agent。</p>';for(const m of roomPrefs().members){const provider=m.id;const node=document.createElement('section');node.className='provider';node.innerHTML='<div class="provider-top"><span class="avatar '+avatarClass(provider)+'">'+escape(letter(provider))+'</span><div><strong>'+escape(m.name)+'</strong><span class="sub">'+escape(backendLabels[m.backend])+'</span></div><span id="state-'+provider+'" class="provider-state"></span><button class="member-edit" aria-label="编辑 '+escape(m.name)+'">⋯</button></div><select id="model-'+provider+'" aria-label="'+escape(m.name)+' 模型"></select><p id="model-note-'+provider+'" class="model-catalog-note"></p><section class="provider-usage compact" aria-label="账户用量与余额"></section><button class="context-badge" data-context="'+provider+'"></button>'+'<label class="effort-row"><span>推理强度</span><select id="effort-'+provider+'" aria-label="'+escape(m.name)+' 推理强度"></select></label>';host.append(node);const usageView=new AccountUsageView(node.querySelector('.provider-usage'),()=>refreshUsage(provider));usageViews.set(provider,usageView);usageView.render(app.usageData.agents[provider]);node.querySelector('.member-edit').onclick=()=>roomMemberDialog(provider);renderModel(provider);$('model-'+provider).onchange=async()=>{try{const value=$('model-'+provider).value;if(value==='__custom'){customDialog(provider);return}m.model=value;m.effort=nextEffort(effortModel(modelList(m),value),m.effort);renderEffort(provider);await saveMemberFields(provider,{model:m.model,effort:m.effort})}catch(e){toast(e.message)}};$('effort-'+provider).onchange=async()=>{try{m.effort=$('effort-'+provider).value||null;await saveMemberFields(provider,{effort:m.effort})}catch(e){toast(e.message)}}}
+const welcomeAvatars=document.querySelector('#welcome .welcome-avatars');if(welcomeAvatars)welcomeAvatars.innerHTML=roomPrefs().members.slice(0,6).map(m=>'<span class="avatar '+avatarClass(m.id)+'">'+escape(letter(m.id))+'</span>').join('')+'<span class="avatar supervisor">M</span>';$('pause-before').checked=roomPrefs().pause_before_execution;renderSupervisor();renderPolicy();renderConnections();renderContexts()}
 function customDialog(provider){app.customProvider=provider;$('model-dialog-title').textContent=(names[provider]||provider)+' 自定义模型';$('custom-model').value='';$('model-dialog').showModal()}
-function renderSupervisor(){const config=app.prefs.supervisor;const source=getMember(config.provider)||app.prefs.members[0];const list=[...modelList(source)];if(!list.some(m=>m.id===config.model))list.push({id:config.model,label:config.model});$('supervisor-provider').innerHTML=app.prefs.members.map(m=>'<option value="'+m.id+'">'+escape(m.name)+' · '+escape(backendLabels[m.backend])+'</option>').join('');$('supervisor-provider').value=source.id;$('supervisor-model').innerHTML=list.map(m=>'<option value="'+escape(m.id)+'">'+escape(m.label||m.id)+'</option>').join('')+'<option value="__custom">＋ 自定义模型 ID</option>';$('supervisor-model').value=config.model;$('supervisor-effort-row').hidden=!isCli(source);const model=list.find(m=>m.id===config.model);const levels=(model?.efforts?.length?model.efforts:['low','medium','high']).filter(v=>v!=='ultra');if(!levels.includes(config.effort))config.effort=levels.includes('high')?'high':levels[0];const labels={low:'低',medium:'中',high:'高',xhigh:'更高',max:'最高'};$('supervisor-effort').innerHTML=levels.map(v=>'<option value="'+escape(v)+'">'+(labels[v]||escape(v))+'</option>').join('');$('supervisor-effort').value=config.effort}
-function renderTeam(){$('team-list').innerHTML='';for(const m of app.prefs.members){const row=document.createElement('div');row.className='team-row';row.innerHTML='<span class="avatar '+avatarClass(m.id)+'">'+escape(letter(m.id))+'</span><div><strong>'+escape(m.name)+'</strong><span>'+escape(backendLabels[m.backend])+' · '+escape(m.model)+'</span><small>'+escape(app.connections[m.id]?.detail||'尚未检查')+'</small></div><button class="outline edit">编辑</button><button class="remove" aria-label="移除 '+escape(m.name)+'">移除</button>';row.querySelector('.edit').onclick=()=>memberDialog(m.id);row.querySelector('.remove').onclick=async()=>{try{if(app.prefs.members.length===1)throw new Error('请保留至少一位成员，或先添加替代成员。');const previous=JSON.parse(JSON.stringify(app.prefs));app.prefs.members=app.prefs.members.filter(x=>x.id!==m.id);if(app.prefs.supervisor.provider===m.id){const first=app.prefs.members[0];app.prefs.supervisor={...app.prefs.supervisor,provider:first.id,model:first.model,effort:first.effort}}try{await savePrefs()}catch(e){app.prefs=previous;throw e}renderProviders();renderTeam();toast('已移除成员，历史答复保留')}catch(e){toast(e.message)}};$('team-list').append(row)}}
-function teamDialog(){renderTeam();$('team-dialog').showModal()}
-function memberDialog(id=null){app.editMember=id;const m=id?getMember(id):{name:'',backend:'openai-compatible',model:'',effort:'high',base_url:'',no_auth:false};$('member-dialog-title').textContent=id?'编辑成员':'添加成员';$('member-name').value=m.name;$('member-backend').value=m.backend;$('member-model').value=m.model;$('member-effort').value=m.effort;$('member-endpoint').value=m.base_url;$('member-key').value='';$('member-no-auth').checked=m.no_auth;memberFields();$('member-dialog').showModal()}
-function memberFields(){const backend=$('member-backend').value;const cli=['chatgpt','claude'].includes(backend);$('member-endpoint-wrap').hidden=backend!=='openai-compatible';$('member-endpoint').required=backend==='openai-compatible';$('member-key-wrap').hidden=cli;$('member-effort-wrap').hidden=!cli;$('member-login-note').hidden=!cli;$('member-no-auth').closest('label').hidden=backend!=='openai-compatible';$('member-model-options').innerHTML=(app.catalogs[backend]||[]).map(m=>'<option value="'+escape(m.id)+'">'+escape(m.label||m.id)+'</option>').join('')}
-function renderPolicy(){$('policy-summary').textContent=(app.policy?.text||app.prefs.cooperation_policy);$('policy-summary').title=$('policy-summary').textContent}
-function policyDialog(){$('policy-text').value=app.policy?.text||app.prefs.cooperation_policy;$('max-steps').value=app.prefs.supervisor.max_steps;$('policy-default').checked=!app.room;$('policy-dialog').showModal()}
-function renderChecks(event){const labels={met:'已符合',pending:'待核对',violated:'需纠偏',not_applicable:'不适用'};const checks=new Map(event.checks.map(c=>[c.rule_id,c]));$('rule-checks').innerHTML='<div class="checks-title">第 '+event.turn+' 轮 · 合作规则检查</div>'+event.rules.map(rule=>{const c=checks.get(rule.id)||{status:'pending',evidence:'等待核对',evidence_ids:[]};return '<details class="rule-check '+escape(c.status)+'"><summary><span>'+escape(labels[c.status])+'</span>'+escape(rule.text)+'</summary><p>'+escape(c.evidence||'等待证据')+'</p><p class="muted">核对方法：'+escape(rule.criterion)+'</p><small>'+escape((c.evidence_ids||[]).join(' · '))+'</small></details>'}).join('')}
-function renderModel(provider){const m=getMember(provider);const select=$('model-'+provider);const list=[...modelList(m)];if(!list.some(x=>x.id===m.model))list.push({id:m.model,label:m.model});select.innerHTML=list.map(x=>'<option value="'+escape(x.id)+'">'+escape(x.label||x.id)+'</option>').join('')+'<option value="__custom">＋ 自定义模型 ID</option>';select.value=m.model;renderEffort(provider)}
-function renderEffort(provider){const m=getMember(provider);if(!isCli(m))return;const model=modelList(m).find(x=>x.id===m.model);const levels=(model?.efforts?.length?model.efforts:['low','medium','high']).filter(v=>v!=='ultra');if(!levels.includes(m.effort))m.effort=levels.includes('high')?'high':levels[0];const labels={low:'低',medium:'中',high:'高',xhigh:'更高',max:'最高'};$('effort-'+provider).innerHTML=levels.map(v=>'<option value="'+escape(v)+'">'+escape(labels[v]||v)+'</option>').join('');$('effort-'+provider).value=m.effort}
-let saveChain=Promise.resolve();
-async function savePrefs(){const snapshot=JSON.parse(JSON.stringify(app.prefs));const pending=saveChain.catch(()=>{}).then(()=>api('/settings',snapshot));saveChain=pending;const data=await pending;app.connections=data.connections;renderConnections();if(app.room?.status==='running')toast('已保存，模型变更将在下次开始协作时生效。')}
+function renderSupervisor(){const config=roomPrefs().supervisor;const source=getAgent(config.provider)||app.prefs.agents[0];const list=[...modelList(source)];if(!list.some(m=>m.id===config.model))list.push({id:config.model,label:config.model+'（当前保存，目录未列出）'});$('supervisor-provider').innerHTML=app.prefs.agents.map(m=>'<option value="'+m.id+'">'+escape(m.name)+' · '+escape(backendLabels[m.backend])+'</option>').join('');$('supervisor-provider').value=source.id;$('supervisor-model').innerHTML=list.map(m=>'<option value="'+escape(m.id)+'">'+escape(modelLabel(m))+'</option>').join('')+'<option value="__custom">＋ 自定义模型 ID</option>';$('supervisor-model').value=config.model;renderReasoningEffort($('supervisor-effort'),effortModel(modelList(source),config.model),config.effort);$('supervisor-catalog-note').textContent=catalogText(getCatalog(source))}
+function renderTeam(){
+ const host=$('team-list');host.innerHTML='';const members=roomPrefs().members;
+ $('team-room-title').textContent=app.room?.title||'协作室信息';
+ $('team-summary').textContent=members.length+' 位成员 · 只管理此协作室';
+ const executor=$('room-executor');executor.innerHTML='<option value="">不指定专门执行者</option>'+members.map(m=>'<option value="'+escape(m.id)+'">'+escape(m.name)+(m.backend==='deepseek'?' · 默认推荐':'')+'</option>').join('');executor.value=roomPrefs().executor||'';
+ $('team-top').textContent='协作室信息 · '+members.length;
+ for(const m of members){
+  const tile=document.createElement('button');tile.type='button';tile.className='group-member'+(app.removing?' removing':'');tile.dataset.member=m.id;
+  tile.setAttribute('aria-label',(app.removing?'移出成员 ':'成员设置 ')+m.name);
+  tile.innerHTML='<span class="avatar '+avatarClass(m.id)+'">'+escape(letter(m.id))+'</span><strong>'+escape(m.name)+'</strong><small>'+escape(m.model)+'</small>'+(app.removing?'<b class="member-minus">−</b>':'');
+  tile.onclick=()=>app.removing?setMembership(m.id,false).catch(e=>toast(e.message)):roomMemberDialog(m.id);
+  host.append(tile);
+ }
+ const add=document.createElement('button');add.type='button';add.className='group-member group-action';add.id='member-add';add.innerHTML='<span>＋</span><strong>邀请成员</strong>';add.onclick=()=>{app.removing=false;renderTeam();renderPicker();$('team-picker-dialog').showModal()};host.append(add);
+ const remove=document.createElement('button');remove.type='button';remove.className='group-member group-action';remove.innerHTML='<span>−</span><strong>'+(app.removing?'完成移出':'移出成员')+'</strong>';remove.disabled=!members.length;remove.onclick=()=>{app.removing=!app.removing;renderTeam()};host.append(remove);
+}
+async function setMembership(id,enabled){
+ if(!app.room)throw new Error('请先进入一个协作室。');
+ await queueMutation('/rooms/'+app.room.id+'/members/'+id+'/membership',{enabled});
+ toast(enabled?'已邀请加入此协作室':'已移出此协作室，Agent 连接和其他协作室不受影响');
+}
+function renderPicker(){
+ const host=$('team-picker-list');host.innerHTML='';const active=new Set(roomPrefs().members.map(m=>m.id));
+ for(const [name,agents] of groupAgents(app.prefs.agents)){
+  const group=document.createElement('section');group.className='agent-picker-group';
+  const title=document.createElement('h3');title.textContent=name;group.append(title);
+  for(const a of agents){
+   const ref=roomPrefs().team.find(r=>r.agent_id===a.id);const row=document.createElement('div');row.className='team-row';row.dataset.agent=a.id;
+   row.innerHTML='<span class="avatar '+avatarClass(a.id)+'">'+escape(letter(a.id))+'</span><div><strong>'+escape(a.name)+'</strong><span>'+escape(ref?.model||a.model)+'</span><small>'+escape(app.connections[a.id]?.detail||'尚未检查')+'</small></div><button class="outline">'+(active.has(a.id)?'已加入':'邀请加入')+'</button>';
+   const button=row.querySelector('button');button.classList.toggle('in-team',active.has(a.id));button.disabled=active.has(a.id);
+   button.onclick=async()=>{button.disabled=true;try{await setMembership(a.id,true)}catch(e){toast(e.message);button.disabled=false}};
+   group.append(row);
+  }
+  host.append(group);
+ }
+}
+function teamDialog(){if(!app.room){projectDialog();return}app.removing=false;renderTeam();$('team-dialog').showModal()}
+function roomMemberDialog(id){
+ const m=getMember(id);if(!m)return;app.editRoomMember=id;
+ $('room-member-title').textContent=m.name+' · 此协作室的设置';roomMemberModel.setValue(m.model);roomMemberModel.update(modelList(m));
+ roomMemberEffort=m.effort;refreshRoomMemberEffort();$('room-member-dialog').showModal();
+}
+function memberDialog(id=null){
+ if(id&&!getAgent(id)){toast('此 Agent 不存在，请刷新 Agent 管理');return}
+ app.editMember=id;const m=id?getAgent(id):{name:'',backend:'openai-compatible',model:'',effort:null,base_url:'',group:'',no_auth:false};
+ $('member-dialog-title').textContent=id?'编辑已保存的 Agent':'添加 Agent';
+ $('member-name').value=m.name;$('member-backend').value=m.backend;$('member-group').value=m.group||'';
+ memberModel.setValue(m.model);memberEffort=m.effort;$('member-endpoint').value=m.base_url;
+ $('member-key').value='';$('member-no-auth').checked=m.no_auth;memberFields();$('member-dialog').showModal();
+}
+function editorSource(){
+ const backend=$('member-backend').value;const saved=app.editMember?getAgent(app.editMember):null;
+ const endpoint=$('member-endpoint').value.trim().replace(/\/+$/,'');
+ return saved&&saved.backend===backend&&(backend!=='openai-compatible'||saved.base_url===endpoint)?saved:{id:'',backend,base_url:endpoint};
+}
+function refreshMemberModels(){
+ const source=editorSource();memberModel.update(modelList(source));
+ $('member-model-note').textContent=catalogText(getCatalog(source));refreshMemberEffort();
+}
+function memberFields(){
+ const memberName=$('member-name').value.trim()||'此 Agent';$('member-key-label').textContent=memberName+' API 密钥';
+ $('member-key').placeholder='粘贴 '+memberName+' 的密钥；留空保留现有密钥';
+ const backend=$('member-backend').value;const cli=['chatgpt','claude'].includes(backend);
+ $('member-endpoint-wrap').hidden=backend!=='openai-compatible';$('member-endpoint').required=backend==='openai-compatible';
+ $('member-key-wrap').hidden=cli;$('member-login-note').hidden=!cli;
+ $('member-no-auth').closest('label').hidden=backend!=='openai-compatible';refreshMemberModels();
+}
+function renderCatalogViews(){
+ if(!app.prefs)return;const active=document.activeElement;
+ for(const m of roomPrefs().members){
+  if(active!==$('model-'+m.id)&&active!==$('effort-'+m.id))renderModel(m.id);
+  $('model-note-'+m.id).textContent=catalogText(getCatalog(m));
+ }
+ if(!['supervisor-model','supervisor-provider','supervisor-effort'].includes(active?.id))renderSupervisor();
+ if($('member-dialog').open)refreshMemberModels();
+ if($('room-member-dialog').open&&app.editRoomMember){roomMemberModel.update(modelList(getAgent(app.editRoomMember)));refreshRoomMemberEffort()}debugConsole.refreshModels();renderConnections();
+ const entries=Object.values(app.modelCatalog.agents);const failed=entries.filter(e=>e.state==='error').length;
+ $('model-catalog-status').textContent=app.modelCatalog.refreshing?'正在自动更新四家模型目录…':failed?'模型目录已更新，'+failed+' 个连接暂用缓存或当前选择。':'模型目录在打开或刷新页面时自动更新。';
+}
+function scheduleModelPoll(){
+ clearTimeout(app.modelPoll);if(app.modelCatalog.refreshing)app.modelPoll=setTimeout(pollModels,600);
+}
+function applyCatalog(data){
+ if(!data)return;const changed=JSON.stringify(app.modelCatalog)!==JSON.stringify(data);app.modelCatalog=data;
+ if(changed)renderCatalogViews();scheduleModelPoll();
+}
+async function pollModels(){
+ if(app.modelsBusy||app.pendingSaves){scheduleModelPoll();return}
+ const epoch=app.configEpoch;const catalogEpoch=app.catalogEpoch;app.modelsBusy=true;
+ try{const data=await api('/models');if(epoch===app.configEpoch&&catalogEpoch===app.catalogEpoch)applyCatalog(data)}
+ catch{ $('model-catalog-status').textContent='目录同步暂时失败，将自动重试。' }
+ finally{app.modelsBusy=false;scheduleModelPoll()}
+}
+async function refreshCatalog(){
+ await saveChain;const epoch=app.configEpoch;const catalogEpoch=++app.catalogEpoch;const data=await api('/models',{});if(epoch===app.configEpoch&&catalogEpoch===app.catalogEpoch)applyCatalog(data);
+}
 
-function readable(text){try{const value=JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));if(value.message&&value.action){const a=value.action;const types={ask:'安排发言',execute:'安排执行',finish:'完成核对',wait:'等待处理'};return value.message+'\n\n'+(types[a.type]||a.type)+(a.agents?.length?' · '+a.agents.map(p=>names[p]||p).join('、'):'')+(a.instruction?'\n'+a.instruction:'')+(a.parallel?'\n并行发言':'')+(a.share_previous===false?' · 独立提案，不共享此前答复':'')}if(value.plan&&Array.isArray(value.tasks))return value.plan+'\n\n## 执行任务\n'+value.tasks.map((t,i)=>(t.id||('T-'+String(i+1).padStart(2,'0')))+' · '+t.goal+'\n允许修改：'+(t.allowed_paths||[]).join('、')+'\n验收：'+(t.acceptance_commands||[]).join('；')).join('\n\n');if(value.verdict)return (value.verdict==='PASS'?'评审通过':'存在阻断问题')+'\n'+(value.summary||'')+'\n'+(value.findings||[]).map(f=>'• '+f).join('\n')}catch{}return text}
+function applyUsage(data){
+ if(!data)return;app.usageData=data;
+ for(const [id,view] of usageViews)view.render(data.agents[id]);renderConnections();scheduleUsagePoll();
+}
+function scheduleUsagePoll(){
+ clearTimeout(app.usagePoll);app.usagePoll=setTimeout(pollUsage,app.usageData.refreshing?800:60000);
+}
+async function pollUsage(){
+ if(app.usageBusy){scheduleUsagePoll();return}app.usageBusy=true;const epoch=app.configEpoch,usageEpoch=app.usageEpoch;
+ try{const data=await api('/usage');if(epoch===app.configEpoch&&usageEpoch===app.usageEpoch)applyUsage(data)}
+ catch{}finally{app.usageBusy=false;scheduleUsagePoll()}
+}
+async function refreshUsage(id=null){
+ await saveChain;const epoch=app.configEpoch,usageEpoch=++app.usageEpoch;
+ const data=await api(id?'/agents/'+id+'/usage':'/usage',{});
+ if(epoch===app.configEpoch&&usageEpoch===app.usageEpoch)applyUsage(data);
+}
+
+function renderPolicy(){$('policy-summary').textContent=(app.policy?.text||app.prefs.cooperation_policy);$('policy-summary').title=$('policy-summary').textContent}
+function policyDialog(){$('policy-text').value=app.policy?.text||app.prefs.cooperation_policy;$('max-steps').value=roomPrefs().supervisor.max_steps;$('policy-default').checked=!app.room;$('policy-dialog').showModal()}
+function renderChecks(event){const labels={met:'已符合',pending:'待核对',violated:'需纠偏',not_applicable:'不适用'};const checks=new Map(event.checks.map(c=>[c.rule_id,c]));$('rule-checks').innerHTML='<div class="checks-title">第 '+event.turn+' 轮 · 合作规则检查</div>'+event.rules.map(rule=>{const c=checks.get(rule.id)||{status:'pending',evidence:'等待核对',evidence_ids:[]};return '<details class="rule-check '+escape(c.status)+'"><summary><span>'+escape(labels[c.status])+'</span>'+escape(rule.text)+'</summary><p>'+escape(c.evidence||'等待证据')+'</p><p class="muted">核对方法：'+escape(rule.criterion)+'</p><small>'+escape((c.evidence_ids||[]).join(' · '))+'</small></details>'}).join('')}
+function renderModel(provider){const m=getMember(provider);const select=$('model-'+provider);const list=[...modelList(m)];if(!list.some(x=>x.id===m.model))list.push({id:m.model,label:m.model+'（当前保存，目录未列出）'});select.innerHTML=list.map(x=>'<option value="'+escape(x.id)+'">'+escape(modelLabel(x))+'</option>').join('')+'<option value="__custom">＋ 自定义模型 ID</option>';select.value=m.model;$('model-note-'+provider).textContent=catalogText(getCatalog(m));renderEffort(provider)}
+function renderEffort(provider){const m=getMember(provider);renderReasoningEffort($('effort-'+provider),effortModel(modelList(m),m.model),m.effort)}
+function refreshMemberEffort(){renderReasoningEffort($('member-effort'),effortModel(modelList(editorSource()),memberModel.value),memberEffort)}
+function refreshRoomMemberEffort(){const m=getAgent(app.editRoomMember);if(m)renderReasoningEffort($('room-member-effort'),effortModel(modelList(m),roomMemberModel.value),roomMemberEffort)}
+let saveChain=Promise.resolve();
+function editingConfiguration(){return ['member-dialog','room-member-dialog','model-dialog','policy-dialog'].some(id=>$(id).open)||document.activeElement?.tagName==='SELECT'}
+function applyState(data,force=false){
+ if(data.connections)app.connections=data.connections;if(data.logins)app.logins=data.logins;let changed=false;
+ if(data.preferences&&(force||!editingConfiguration())){changed=JSON.stringify(app.prefs)!==JSON.stringify(data.preferences);app.prefs=data.preferences}
+ if(data.room_settings&&data.room_settings.room_id===app.room?.id&&(force||!editingConfiguration())){changed=changed||JSON.stringify(app.roomSettings)!==JSON.stringify(data.room_settings);app.roomSettings=data.room_settings}
+ if(changed){renderProviders();if(app.room)renderTeam();if($('team-picker-dialog').open)renderPicker()}
+ if(data.model_catalog)applyCatalog(data.model_catalog);if(data.account_usage)applyUsage(data.account_usage);renderConnections();
+}
+async function queueMutation(path,body){app.pendingSaves++;app.configEpoch++;const pending=saveChain.catch(()=>{}).then(()=>api(path,body));saveChain=pending;try{const data=await pending;applyState(data,true);return data}finally{app.pendingSaves--;app.configEpoch++}}
+async function savePrefs(){
+ if(!app.room)throw new Error('请先进入协作室。');
+ const payload=JSON.parse(JSON.stringify({pause_before_execution:roomPrefs().pause_before_execution,supervisor:roomPrefs().supervisor}));
+ await queueMutation('/rooms/'+app.room.id+'/configuration',payload);
+ if(app.room?.status==='running')toast('已保存此协作室设置，下次开始协作时生效');
+}
+async function saveMemberFields(id,fields){if(!app.room)throw new Error('请先进入协作室。');return queueMutation('/rooms/'+app.room.id+'/members/'+id,fields)}
+async function syncConnections(force=false){if(!app.prefs||app.syncBusy||app.pendingSaves||editingConfiguration())return;const epoch=app.configEpoch;app.syncBusy=true;try{const data=await api('/connection-state?'+new URLSearchParams({...(app.room?{room_id:app.room.id}:{}),...(force?{refresh:'1'}:{})}));if(app.pendingSaves||epoch!==app.configEpoch)return;applyState(data);$('settings-note').textContent='已同步 '+app.prefs.agents.length+' 位已保存 Agent；连接状态每 5 秒自动更新。'}catch(e){if($('settings-dialog').open)$('settings-note').textContent='同步失败：'+e.message+' 将自动重试。';if(force)toast(e.message)}finally{app.syncBusy=false}}
+setInterval(()=>{if(document.visibilityState==='visible')syncConnections()},5000);
+window.addEventListener('focus',()=>syncConnections(true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncConnections(true)});
+
+function readable(text){try{const value=JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));if(value.message&&value.action){const a=value.action;const types={ask:'安排发言',execute:'安排执行',finish:'完成核对',wait:'等待处理'};return value.message+'\n\n'+(types[a.type]||a.type)+(a.agents?.length?' · '+a.agents.map(p=>names[p]||p).join('、'):'')+(a.instruction?'\n'+a.instruction:'')+(a.parallel?'\n并行发言':'')}if(value.plan&&Array.isArray(value.tasks))return value.plan+'\n\n## 执行任务\n'+value.tasks.map((t,i)=>(t.id||('T-'+String(i+1).padStart(2,'0')))+' · '+t.goal+'\n允许修改：'+(t.allowed_paths||[]).join('、')+'\n验收：'+(t.acceptance_commands||[]).join('；')).join('\n\n');if(value.verdict)return (value.verdict==='PASS'?'评审通过':'存在阻断问题')+'\n'+(value.summary||'')+'\n'+(value.findings||[]).map(f=>'• '+f).join('\n')}catch{}return text}
 function renderMessage(message){app.messages.set(message.id,message);let node=$('m-'+message.id);if(!node){node=document.createElement('article');node.id='m-'+message.id;$('timeline').append(node)}node.className='message '+message.provider+' '+message.status;const time=new Date(message.created).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});if(message.provider==='system'){node.innerHTML='<div class="message-content">'+textHtml(readable(message.text))+'</div>';return}node.innerHTML='<span class="avatar '+avatarClass(message.provider)+'">'+escape(letter(message.provider))+'</span><div class="message-main"><div class="message-meta"><span class="message-name">'+escape(names[message.provider]||message.provider)+'</span>'+(message.model?'<span class="message-model">'+escape(message.model)+'</span>':'')+(message.phase?'<span class="message-phase">'+escape(message.phase)+'</span>':'')+'<time>'+time+'</time></div><div class="message-content">'+(message.text?textHtml(readable(message.text)):'<span class="muted">正在生成答复…</span>')+'</div></div>'}
 function composerState(){const running=app.room&&['running','paused'].includes(app.room.status);const steering=$('mode').value==='discuss'&&$('target').value==='supervisor';$('send').disabled=Boolean(running&&!steering);$('prompt').disabled=Boolean(running&&!steering);const workflow=$('mode').value==='workflow';$('target-wrap').hidden=workflow;$('mode-note').textContent=workflow?'按合作规则动态安排各方':steering?'补充合作规则，下个步骤生效':'只读讨论，不修改项目文件';$('send').firstChild.textContent=workflow?'开始协作 ':steering?'交给监工 ':'发送 ';$('prompt').placeholder=steering?'告诉监工你希望怎样合作，例如：下一轮让两方分别提出反例……':'输入要完成的任务，监工会按合作规则安排各方……'}
 function setStatus(value){if(!app.room)return;app.room.status=value;const room=app.rooms.find(r=>r.id===app.room.id);if(room)room.status=value;$('run-status').textContent=statuses[value]||value;$('run-status').className='status '+value;const running=['running','paused'].includes(value);$('stop').hidden=!running;$('resume').hidden=value!=='paused';$('activity').hidden=!running;if(!running)$('activity-text').textContent='';composerState();renderRooms()}
-function onEvent(event){const timeline=$('timeline');const follow=timeline.scrollHeight-timeline.scrollTop-timeline.clientHeight<160;switch(event.type){case'policy_updated':if(!app.policy||event.policy.revision>=app.policy.revision){app.policy=event.policy;renderPolicy()}break;case'supervision':if(event.turn===1)app.evidenceMap={};renderChecks(event);break;case'evidence':{const r=event.record;if(r.message_id){app.evidenceMap[r.id]=r.message_id;const node=$('m-'+r.message_id);if(node){const tag=document.createElement('span');tag.className='evidence-badge';tag.dataset.evidence=r.id;tag.textContent=r.id+' · '+(r.status==='complete'?'已返回':'未通过')+(r.kind==='execute'?(r.tests_run?' · 已运行验收':' · 未测试'):'');node.querySelector('.message-meta')?.append(tag)}}break;}case'message':$('welcome')?.remove();renderMessage(event.message);break;case'room_status':setStatus(event.status);break;case'activity':$('activity').hidden=false;$('activity-text').textContent=(names[event.provider]||'系统')+'：'+event.text;app.lastActivity=Date.now();break;case'phase':if(app.phaseHistory.at(-1)!==event.phase)app.phaseHistory.push(event.phase);$('phases').innerHTML=app.phaseHistory.map((p,i)=>'<div class="phase '+(i===app.phaseHistory.length-1?'current':'')+'">'+escape(p)+'</div>').join('');$('activity').hidden=false;$('activity-text').textContent=(names[event.provider]||'系统')+' · '+event.phase;break;case'plan':$('task-list').innerHTML=event.tasks.map(t=>'<div class="task-item"><strong>'+escape(t.id)+'</strong> '+escape(t.goal)+'</div>').join('');break;case'test':{const detail=document.createElement('details');detail.className='tool-output'+(event.exit_code?' fail':'');detail.innerHTML='<summary>'+escape(event.command)+' · 退出码 '+event.exit_code+'</summary><pre>'+escape(event.output||'（无输出）')+'</pre>';timeline.append(detail);break}}if(follow)timeline.scrollTop=timeline.scrollHeight}
-async function openRoom(rid){app.events?.close();const data=await api('/rooms/'+rid);app.room=data.room;app.policy=data.policy;renderPolicy();app.messages.clear();app.evidenceMap={};app.phaseHistory=[];$('timeline').innerHTML='';$('phases').innerHTML='<p class="muted">等待监工安排。</p>';$('task-list').innerHTML='';$('rule-checks').innerHTML='';$('room-title').textContent=data.room.title;$('project-chip').textContent=data.room.project;$('project-chip').title=data.room.project;for(const message of data.messages)renderMessage(message);if(!data.messages.length){const note=document.createElement('div');note.className='welcome';note.innerHTML='<div class="welcome-avatars">'+app.prefs.members.slice(0,6).map(m=>'<span class="avatar '+avatarClass(m.id)+'">'+escape(letter(m.id))+'</span>').join('')+'<span class="avatar supervisor">M</span></div><h2>团队与监工已经就位。</h2><p>先编辑合作方式，再输入这次要完成的任务。</p>';$('timeline').append(note);note.id='welcome'}setStatus(data.room.status);renderRooms();app.events=new EventSource('/api/rooms/'+rid+'/events');app.events.onmessage=event=>onEvent(JSON.parse(event.data));app.events.onopen=()=>setStatus(app.room.status);app.events.onerror=()=>{$('run-status').textContent='正在重新连接…'};$('timeline').scrollTop=$('timeline').scrollHeight;localStorage.setItem('tiered-last-room',rid)}
+function onEvent(event){const timeline=$('timeline');const follow=timeline.scrollHeight-timeline.scrollTop-timeline.clientHeight<160;switch(event.type){case'policy_updated':if(!app.policy||event.policy.revision>=app.policy.revision){app.policy=event.policy;renderPolicy()}break;case'supervision':if(event.turn===1)app.evidenceMap={};renderChecks(event);break;case'evidence':{const r=event.record;if(r.message_id){app.evidenceMap[r.id]=r.message_id;const node=$('m-'+r.message_id);if(node){const tag=document.createElement('span');tag.className='evidence-badge';tag.dataset.evidence=r.id;tag.textContent=r.id+' · '+(r.status==='complete'?'已返回':'未通过')+(r.kind==='execute'?(r.tests_run?' · 已运行验收':' · 未测试'):'');node.querySelector('.message-meta')?.append(tag)}}break;}case'message':$('welcome')?.remove();renderMessage(event.message);break;case'room_status':setStatus(event.status);break;case'context':if(!contextEntries.some(e=>e.id===event.delivery_id))contextEntries.unshift({...event.context,identity:event.provider,id:event.delivery_id,created:event.time});contextEntries=contextEntries.slice(0,100);renderContexts();break;case'activity':$('activity').hidden=false;$('activity-text').textContent=(names[event.provider]||'系统')+'：'+event.text;app.lastActivity=Date.now();break;case'phase':if(app.phaseHistory.at(-1)!==event.phase)app.phaseHistory.push(event.phase);$('phases').innerHTML=app.phaseHistory.map((p,i)=>'<div class="phase '+(i===app.phaseHistory.length-1?'current':'')+'">'+escape(p)+'</div>').join('');$('activity').hidden=false;$('activity-text').textContent=(names[event.provider]||'系统')+' · '+event.phase;break;case'plan':$('task-list').innerHTML=event.tasks.map(t=>'<div class="task-item"><strong>'+escape(t.id)+'</strong> '+escape(t.goal)+'</div>').join('');break;case'test':{const detail=document.createElement('details');detail.className='tool-output'+(event.exit_code?' fail':'');detail.innerHTML='<summary>'+escape(event.command)+' · 退出码 '+event.exit_code+'</summary><pre>'+escape(event.output||'（无输出）')+'</pre>';timeline.append(detail);break}}if(follow)timeline.scrollTop=timeline.scrollHeight}
+async function openRoom(rid){const epoch=++app.roomEpoch;app.events?.close();await saveChain.catch(()=>{});const data=await api('/rooms/'+rid);if(epoch!==app.roomEpoch)return;for(const id of ['team-dialog','team-picker-dialog','room-member-dialog','model-dialog','policy-dialog','context-dialog'])$(id).close();app.room=data.room;app.roomSettings=data.room_settings;contextEntries=data.context||[];renderProviders();renderTeam();app.policy=data.policy;renderPolicy();app.messages.clear();app.evidenceMap={};app.phaseHistory=[];$('timeline').innerHTML='';$('phases').innerHTML='<p class="muted">等待监工安排。</p>';$('task-list').innerHTML='';$('rule-checks').innerHTML='';$('room-title').textContent=data.room.title;$('project-chip').textContent=data.room.project;$('project-chip').title=data.room.project;for(const message of data.messages)renderMessage(message);if(!data.messages.length){const note=document.createElement('div');note.className='welcome';note.innerHTML='<div class="welcome-avatars">'+roomPrefs().members.slice(0,6).map(m=>'<span class="avatar '+avatarClass(m.id)+'">'+escape(letter(m.id))+'</span>').join('')+'<span class="avatar supervisor">M</span></div><h2>团队与监工已经就位。</h2><p>先编辑合作方式，再输入这次要完成的任务。</p>';$('timeline').append(note);note.id='welcome'}setStatus(data.room.status);renderRooms();app.events=new EventSource('/api/rooms/'+rid+'/events');app.events.onmessage=event=>{if(epoch===app.roomEpoch)onEvent(JSON.parse(event.data))};app.events.onopen=()=>setStatus(app.room.status);app.events.onerror=()=>{$('run-status').textContent='正在重新连接…'};$('timeline').scrollTop=$('timeline').scrollHeight;localStorage.setItem('tiered-last-room',rid)}
 function projectDialog(){$('project-title').value='';$('project-path').value=app.room?.project||app.rooms[0]?.project||'';$('project-dialog').showModal()}
 
 bind('new-room',projectDialog);bind('welcome-create',projectDialog);bind('project-chip',()=>app.room?toast(app.room.project):projectDialog());
 for(const button of document.querySelectorAll('[data-close]'))button.onclick=()=>button.closest('dialog').close();
 for(const dialog of document.querySelectorAll('dialog'))dialog.addEventListener('click',event=>{if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dialog.close()}});
 bind('browse',async()=>{const button=$('browse');button.disabled=true;button.textContent='等待选择…';try{const data=await api('/folder',{});if(data.path)$('project-path').value=data.path}finally{button.disabled=false;button.textContent='浏览文件夹'}});
-$('project-form').onsubmit=async event=>{event.preventDefault();try{const path=$('project-path').value.trim();const title=$('project-title').value.trim()||path.split(/[\\/]/).filter(Boolean).pop();const room=await api('/rooms',{project:path,title});app.rooms.unshift(room);$('project-dialog').close();await openRoom(room.id)}catch(error){toast(error.message)}};
-bind('team-open',teamDialog);bind('team-top',teamDialog);bind('member-add',()=>memberDialog());
-$('member-backend').onchange=()=>{memberFields();if(!app.editMember){const b=$('member-backend').value;$('member-model').value=app.catalogs[b]?.[0]?.id||''}};
-$('member-form').onsubmit=async event=>{event.preventDefault();const button=$('member-save');button.disabled=true;try{const id=app.editMember||('m-'+crypto.randomUUID().replaceAll('-','').slice(0,16));const m={id,name:$('member-name').value.trim(),backend:$('member-backend').value,model:$('member-model').value.trim(),effort:$('member-effort').value,base_url:$('member-endpoint').value.trim(),no_auth:$('member-no-auth').checked&&$('member-backend').value==='openai-compatible'};const previous=JSON.parse(JSON.stringify(app.prefs));const index=app.prefs.members.findIndex(x=>x.id===id);if(index<0)app.prefs.members.push(m);else app.prefs.members[index]=m;try{await savePrefs()}catch(e){app.prefs=previous;throw e}app.editMember=id;if($('member-key').value.trim()){const data=await api('/members/'+id+'/key',{key:$('member-key').value.trim()});$('member-key').value='';app.connections=data.connections}renderProviders();renderTeam();$('member-dialog').close();toast('成员已保存')}catch(e){toast(e.message)}finally{button.disabled=false}};
-bind('settings-team',()=>{$('settings-dialog').close();teamDialog()});bind('settings-open',()=>{$('settings-dialog').showModal();renderConnections()});bind('check-connections',async()=>{app.connections=await api('/connections');renderConnections();$('settings-note').textContent='连接状态已更新。'});
-for(const provider of ['chatgpt','claude'])bind('login-'+provider,async()=>{const data=await api('/login/'+provider,{});$('settings-note').textContent=data.message;toast(data.message)});
-$('key-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const body={};if($('deepseek-key').value.trim())body.deepseek_key=$('deepseek-key').value.trim();const data=await api('/settings',body);$('deepseek-key').value='';app.connections=data.connections;renderConnections();app.catalogs=await api('/models',{});renderProviders();$('settings-note').textContent='已保存连接设置，模型目录已更新。';toast('设置已保存')}catch(error){toast(error.message)}finally{button.disabled=false}};
-bind('refresh-models',async()=>{const button=$('refresh-models');button.disabled=true;try{app.catalogs=await api('/models',{});for(const m of app.prefs.members.filter(x=>!isCli(x))){try{app.memberCatalogs[m.id]=await api('/members/'+m.id+'/models',{})}catch{}}renderProviders();toast('已刷新可连接的模型目录；无法读取时保留当前选择')}finally{button.disabled=false}});
-$('model-form').onsubmit=async event=>{event.preventDefault();try{const provider=app.customProvider;if(provider==='supervisor')app.prefs.supervisor.model=$('custom-model').value.trim();else getMember(provider).model=$('custom-model').value.trim();await savePrefs();if(provider==='supervisor')renderSupervisor();else renderModel(provider);$('model-dialog').close();toast('模型已更新')}catch(error){toast(error.message)}};
-$('model-dialog').addEventListener('close',()=>{if(app.customProvider==='supervisor')renderSupervisor();else if(app.customProvider)renderModel(app.customProvider)});
-$('pause-before').onchange=async()=>{app.prefs.pause_before_execution=$('pause-before').checked;try{await savePrefs()}catch(e){toast(e.message)}};
-$('supervisor-provider').onchange=async()=>{try{const provider=$('supervisor-provider').value;app.prefs.supervisor.provider=provider;app.prefs.supervisor.model=getMember(provider).model;app.prefs.supervisor.effort=getMember(provider).effort||'high';renderSupervisor();await savePrefs()}catch(e){toast(e.message)}};
-$('supervisor-model').onchange=async()=>{try{const value=$('supervisor-model').value;if(value==='__custom'){customDialog('supervisor');return}app.prefs.supervisor.model=value;renderSupervisor();await savePrefs()}catch(e){toast(e.message)}};
-$('supervisor-effort').onchange=async()=>{try{app.prefs.supervisor.effort=$('supervisor-effort').value;await savePrefs()}catch(e){toast(e.message)}};
+$('project-form').onsubmit=async event=>{event.preventDefault();try{const path=$('project-path').value.trim();const title=$('project-title').value.trim()||path.split(/[\\/]/).filter(Boolean).pop();const room=await api('/rooms',{project:path,title});app.rooms.unshift(room);$('project-dialog').close();await openRoom(room.id);teamDialog()}catch(error){toast(error.message)}};
+bind('team-open',teamDialog);bind('team-top',teamDialog);
+bind('agent-add',()=>memberDialog());
+bind('picker-agent-add',()=>{$('team-picker-dialog').close();$('team-dialog').close();$('settings-open').click()});
+$('member-backend').onchange=memberFields;
+$('member-endpoint').addEventListener('input',refreshMemberModels);
+$('member-name').addEventListener('input',memberFields);
+$('member-form').onsubmit=async event=>{
+ event.preventDefault();const button=$('member-save');button.disabled=true;
+ try{
+  const id=app.editMember||('m-'+crypto.randomUUID().replaceAll('-','').slice(0,16));
+  const m={name:$('member-name').value.trim(),group:$('member-group').value.trim(),backend:$('member-backend').value,model:memberModel.value,effort:$('member-effort').value||null,base_url:$('member-endpoint').value.trim(),no_auth:$('member-no-auth').checked&&$('member-backend').value==='openai-compatible',create:!app.editMember};
+  await queueMutation('/agents/'+id,m);app.editMember=id;
+  if($('member-key').value.trim()){await queueMutation('/agents/'+id+'/key',{key:$('member-key').value.trim()});$('member-key').value=''}
+  renderTeam();if($('team-picker-dialog').open)renderPicker();$('member-dialog').close();toast('Agent 已保存，可在各协作室中邀请加入');
+ }catch(e){toast(e.message)}finally{button.disabled=false}
+};
+$('room-member-form').onsubmit=async event=>{event.preventDefault();if(!roomMemberModel.reportValidity())return;try{await saveMemberFields(app.editRoomMember,{model:roomMemberModel.value,effort:$('room-member-effort').value||null});$('room-member-dialog').close();toast('已保存此协作室的成员设置')}catch(error){toast(error.message)}};
+bind('room-member-remove',async()=>{await setMembership(app.editRoomMember,false);$('room-member-dialog').close()});
+bind('settings-open',async()=>{$('settings-dialog').showModal();renderConnections();$('settings-note').textContent='正在同步已保存的 Agent 与连接状态…';await syncConnections(true)});
+bind('check-connections',async()=>{const button=$('check-connections');button.disabled=true;try{await Promise.all([syncConnections(true),refreshCatalog(),refreshUsage()])}finally{button.disabled=false}});
+bind('refresh-models',async()=>{const button=$('refresh-models');button.disabled=true;try{await refreshCatalog();toast('正在更新四家模型目录，已保存的模型选择保持不变')}finally{button.disabled=false}});
+$('model-form').onsubmit=async event=>{event.preventDefault();try{const provider=app.customProvider;const model=$('custom-model').value.trim();if(provider==='supervisor'){roomPrefs().supervisor.model=model;roomPrefs().supervisor.effort=null;await savePrefs();renderSupervisor()}else{await saveMemberFields(provider,{model,effort:null})} $('model-dialog').close();toast('模型已更新')}catch(error){toast(error.message)}};
+$('model-dialog').addEventListener('close',()=>{if(app.customProvider==='supervisor')renderSupervisor();else if(app.customProvider&&getMember(app.customProvider))renderModel(app.customProvider)});
+$('pause-before').onchange=async()=>{roomPrefs().pause_before_execution=$('pause-before').checked;try{await savePrefs()}catch(e){toast(e.message)}};
+$('supervisor-provider').onchange=async()=>{try{const provider=$('supervisor-provider').value;roomPrefs().supervisor.provider=provider;roomPrefs().supervisor.model=getAgent(provider).model;roomPrefs().supervisor.effort=nextEffort(effortModel(modelList(getAgent(provider)),getAgent(provider).model),getAgent(provider).effort);renderSupervisor();await savePrefs()}catch(e){toast(e.message)}};
+$('supervisor-model').onchange=async()=>{try{const value=$('supervisor-model').value;if(value==='__custom'){customDialog('supervisor');return}roomPrefs().supervisor.model=value;roomPrefs().supervisor.effort=nextEffort(effortModel(modelList(getAgent(roomPrefs().supervisor.provider)),value),roomPrefs().supervisor.effort);renderSupervisor();await savePrefs()}catch(e){toast(e.message)}};
+$('supervisor-effort').onchange=async()=>{try{roomPrefs().supervisor.effort=$('supervisor-effort').value||null;await savePrefs()}catch(e){toast(e.message)}};
 bind('policy-open',policyDialog);bind('policy-top',policyDialog);
-$('policy-form').onsubmit=async event=>{event.preventDefault();try{const text=$('policy-text').value.trim();if(!text)throw new Error('请输入合作方式。');app.prefs.supervisor.max_steps=Number($('max-steps').value);if($('policy-default').checked||!app.room)app.prefs.cooperation_policy=text;await savePrefs();if(app.room)app.policy=await api('/rooms/'+app.room.id+'/policy',{text});renderPolicy();$('policy-dialog').close();toast(app.room?.status==='running'?'合作方式已更新，当前步骤结束后生效':'合作方式已交给监工')}catch(e){toast(e.message)}};
+$('policy-form').onsubmit=async event=>{event.preventDefault();try{const text=$('policy-text').value.trim();if(!text)throw new Error('请输入合作方式。');roomPrefs().supervisor.max_steps=Number($('max-steps').value);if($('policy-default').checked)await queueMutation('/settings',{cooperation_policy:text});await savePrefs();if(app.room)app.policy=await api('/rooms/'+app.room.id+'/policy',{text});renderPolicy();$('policy-dialog').close();toast(app.room?.status==='running'?'合作方式已更新，当前步骤结束后生效':'合作方式已交给监工')}catch(e){toast(e.message)}};
 $('mode').onchange=composerState;$('target').onchange=composerState;
-$('composer').onsubmit=async event=>{event.preventDefault();if(!app.room){projectDialog();return}const text=$('prompt').value.trim();if(!text)return;try{await saveChain;const response=await api('/rooms/'+app.room.id+'/send',{text,mode:$('mode').value,target:$('target').value,preferences:app.prefs});$('prompt').value='';if(response.status==='started'){setStatus('running');$('activity-text').textContent='正在安排本次协作…'}else toast('已补充合作要求，当前步骤结束后生效')}catch(error){toast(error.message)}};
+$('composer').onsubmit=async event=>{event.preventDefault();if(!app.room){projectDialog();return}const text=$('prompt').value.trim();if(!text)return;try{await saveChain;const response=await api('/rooms/'+app.room.id+'/send',{text,mode:$('mode').value,target:$('target').value});$('prompt').value='';if(response.status==='started'){setStatus('running');$('activity-text').textContent='正在安排本次协作…'}else toast('已补充合作要求，当前步骤结束后生效')}catch(error){toast(error.message)}};
 $('prompt').onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('composer').requestSubmit()}};
 bind('stop',async()=>{if(!app.room)return;$('stop').disabled=true;try{await api('/rooms/'+app.room.id+'/stop',{})}finally{$('stop').disabled=false}});bind('resume',async()=>{await api('/rooms/'+app.room.id+'/resume',{});$('resume').hidden=true});
 bind('export',()=>{if(!app.room){toast('先创建一个协作室');return}const link=document.createElement('a');link.href='/api/rooms/'+app.room.id+'/export';link.download='tiered-chat.md';link.click()});
@@ -71,9 +238,40 @@ bind('help',()=>$('help-dialog').showModal());
 bind('recovery-open',async()=>{if(!app.room){toast('先选择协作项目');return}const data=await api('/rooms/'+app.room.id+'/recovery',{});$('recovery-list').innerHTML=data.pending.length?data.pending.map(r=>'<div class="recovery-record"><strong>'+escape(r.path)+'</strong><br>状态：'+escape(r.status)+'<br>记录：'+escape(r.transaction_id)+'</div>').join(''):'<p class="muted">没有待确认的文件写入记录。</p>';$('recovery-confirm').disabled=!data.pending.length;$('recovery-dialog').showModal()});
 bind('recovery-confirm',async()=>{const data=await api('/rooms/'+app.room.id+'/recovery',{acknowledge:true});$('recovery-list').innerHTML='<p class="muted">已核对并确认 '+data.acknowledged+' 条记录。</p>';$('recovery-confirm').disabled=true});
 
-async function init(){try{const data=await api('/bootstrap');app.token=data.token;app.prefs=data.preferences;app.catalogs=data.catalogs;app.connections=data.connections;app.rooms=data.rooms;renderProviders();renderRooms();composerState();const last=localStorage.getItem('tiered-last-room');if(last&&app.rooms.some(r=>r.id===last))await openRoom(last)}catch(error){toast('连接本机服务失败：'+error.message);$('run-status').textContent='连接失败'}}
+async function init(){try{const data=await api('/bootstrap');app.token=data.token;app.prefs=data.preferences;app.modelCatalog=data.model_catalog;app.usageData=data.account_usage||{agents:{},refreshing:false};app.connections=data.connections;app.logins=data.logins||{};app.rooms=data.rooms;renderProviders();renderRooms();composerState();applyCatalog(data.model_catalog);applyUsage(data.account_usage);renderCatalogViews();const last=localStorage.getItem('tiered-last-room');if(last&&app.rooms.some(r=>r.id===last))await openRoom(last)}catch(error){toast('连接本机服务失败：'+error.message);$('run-status').textContent='连接失败'}}
+document.addEventListener('focusout',event=>{if(event.target.tagName==='SELECT')setTimeout(renderCatalogViews,0)});
 init();
 
 let artifactData={};
 bind('artifacts-open',async()=>{if(!app.room){toast('先选择一个项目');return}artifactData=await api('/rooms/'+app.room.id+'/artifacts');$('artifact-text').textContent=artifactData.diff||'没有待查看的变更。';$('artifacts-dialog').showModal()});
 for(const button of document.querySelectorAll('[data-artifact]'))button.onclick=()=>{$('artifact-text').textContent=artifactData[button.dataset.artifact]||'没有内容。'};
+
+function renderContexts(){
+ for(const button of document.querySelectorAll('[data-context]')){
+  const id=button.dataset.context;const executor=roomPrefs().executor===id;const role=executor?'executor':id==='supervisor'?'supervisor':'discussion';const entry=contextEntries.find(e=>e.identity===id&&e.role===role);
+  button.textContent=(executor?'执行者 · 仅监工契约':id==='supervisor'?'监工 · 群原文共享':'讨论成员 · 群原文共享')+(entry?' · '+({prepared:'准备中',delivered:'已投递',failed:'失败',interrupted:'已中断'}[entry.status]||entry.status)+(executor&&entry.contract?' 契约 #'+entry.contract.revision:' '+entry.messages.length+' 条原文'):'');
+  button.onclick=()=>contextDialog(id);
+ }
+}
+function contextDialog(id){
+ $('context-title').textContent=(names[id]||id)+' · 上下文投递';const host=$('context-detail');host.innerHTML='';
+ const entries=contextEntries.filter(e=>e.identity===id).slice(0,12);
+ if(!entries.length)host.textContent=roomPrefs().executor===id?'此执行者只接收监工执行契约，尚无投递。':'尚无投递记录。下次发言会直接同步群原文。';
+ for(const e of entries){
+  const section=document.createElement('section');section.className='context-entry';
+  section.innerHTML='<strong>'+escape(e.mode)+' · '+escape(e.phase)+'</strong><p>'+escape(({prepared:'准备调用',delivered:'已完成投递',failed:'调用失败',interrupted:'调用中断'}[e.status]||e.status))+' · 本次输入估算 '+Number(e.estimated_input_tokens).toLocaleString()+' tokens</p><p>本地活动预算 '+Number(e.budget.soft).toLocaleString()+' · '+escape(e.budget.source)+'</p>'+(e.rotation?'<p>'+escape(e.rotation)+'</p>':'')+'<small>'+(e.role==='executor'?'执行者不会加载群原文；本次执行要求见下方。':'本次 '+e.messages.length+' 条原文；'+e.not_loaded.length+' 条未自动加载，可按消息 ID 检索。')+'</small>';
+  if(e.usage&&Object.keys(e.usage).length){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='运行器返回的用量';const pre=document.createElement('pre');pre.textContent=JSON.stringify(e.usage,null,2);details.append(summary,pre);section.append(details)}
+  if(e.contract){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='本次执行要求 · 第 '+e.contract.revision+' 版';const pre=document.createElement('pre');pre.textContent=e.contract.text;details.append(summary,pre);section.append(details)}
+  const list=document.createElement('div');
+  for(const m of e.messages){const b=document.createElement('button');b.className='context-message';b.textContent=(names[m.provider]||m.provider)+' · #'+m.seq+' · '+m.id.slice(0,12);b.title='SHA-256 '+m.hash;b.onclick=()=>{let pre=section.querySelector('pre');if(!pre){pre=document.createElement('pre');section.append(pre)}pre.textContent=app.messages.get(m.id)?.text||'请重新进入此群加载原文。'};list.append(b)}
+  if(e.not_loaded.length){const omitted=document.createElement('details');const summary=document.createElement('summary');summary.textContent='未自动加载的消息 ID';omitted.append(summary);const p=document.createElement('p');p.textContent=e.not_loaded.map(m=>m.id).join(' · ');omitted.append(p);list.append(omitted)}
+  section.append(list);host.append(section);
+ }
+ $('context-dialog').showModal();
+}
+$('room-executor').onchange=async()=>{try{await queueMutation('/rooms/'+app.room.id+'/configuration',{executor:$('room-executor').value||null});toast('已保存此协作室执行者；下次任务使用独立上下文')}catch(e){toast(e.message);renderTeam()}};
+
+$('member-effort').onchange=()=>{memberEffort=$('member-effort').value||null};
+$('room-member-effort').onchange=()=>{roomMemberEffort=$('room-member-effort').value||null};
+for(const id of ['member-model','member-custom-model'])$(id).addEventListener(id.endsWith('model')&&id.includes('custom')?'input':'change',()=>{memberEffort=nextEffort(effortModel(modelList(editorSource()),memberModel.value),memberEffort);refreshMemberEffort()});
+for(const id of ['room-member-model','room-member-custom-model'])$(id).addEventListener(id.includes('custom')?'input':'change',()=>{roomMemberEffort=nextEffort(effortModel(modelList(getAgent(app.editRoomMember)),roomMemberModel.value),roomMemberEffort);refreshRoomMemberEffort()});

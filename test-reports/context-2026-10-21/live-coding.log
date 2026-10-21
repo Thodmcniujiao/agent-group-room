@@ -1,0 +1,2 @@
+{"agent": "deepseek", "mode": "coding", "model": "deepseek-flash", "ok": true, "seconds": 9.91, "turns": 2, "roles": ["executor", "executor"]}
+{"agent": "gemini", "mode": "coding", "model": "models/gemini-3.8-flash", "ok": true, "seconds": 14.31, "turns": 2, "roles": ["executor", "executor"]}

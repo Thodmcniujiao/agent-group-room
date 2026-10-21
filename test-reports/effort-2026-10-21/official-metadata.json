@@ -1,0 +1,1535 @@
+{
+  "timestamp_utc": "2026-10-21T16:03:37.419829+00:00",
+  "live_model_calls": false,
+  "sources": [
+    "https://learn.chatgpt.com/docs/app-server",
+    "https://platform.claude.com/docs/en/api/models",
+    "https://api-docs.deepseek.com/api/list-models/"
+  ],
+  "providers": {
+    "chatgpt": {
+      "method": "model/list",
+      "raw_models": [
+        {
+          "id": "gpt-6.1-sol",
+          "model": "gpt-6.1-sol",
+          "displayName": "GPT-6.1-Sol",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            },
+            {
+              "reasoningEffort": "ultra",
+              "description": "Maximum reasoning with automatic task delegation"
+            }
+          ],
+          "defaultReasoningEffort": "low"
+        },
+        {
+          "id": "gpt-6-astra",
+          "model": "gpt-6-astra",
+          "displayName": "GPT-6-Astra",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            },
+            {
+              "reasoningEffort": "ultra",
+              "description": "Maximum reasoning with automatic task delegation"
+            }
+          ],
+          "defaultReasoningEffort": "low"
+        },
+        {
+          "id": "gpt-6-sol",
+          "model": "gpt-6-sol",
+          "displayName": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            },
+            {
+              "reasoningEffort": "ultra",
+              "description": "Maximum reasoning with automatic task delegation"
+            }
+          ],
+          "defaultReasoningEffort": "medium"
+        },
+        {
+          "id": "gpt-6-luna",
+          "model": "gpt-6-luna",
+          "displayName": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            }
+          ],
+          "defaultReasoningEffort": "medium"
+        },
+        {
+          "id": "gpt-5.6-sol",
+          "model": "gpt-5.6-sol",
+          "displayName": "GPT-5.6-Sol",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            },
+            {
+              "reasoningEffort": "ultra",
+              "description": "Maximum reasoning with automatic task delegation"
+            }
+          ],
+          "defaultReasoningEffort": "low"
+        },
+        {
+          "id": "gpt-5.6-terra",
+          "model": "gpt-5.6-terra",
+          "displayName": "GPT-5.6-Terra",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            },
+            {
+              "reasoningEffort": "ultra",
+              "description": "Maximum reasoning with automatic task delegation"
+            }
+          ],
+          "defaultReasoningEffort": "medium"
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "model": "gpt-5.6-luna",
+          "displayName": "GPT-5.6-Luna",
+          "supportedReasoningEfforts": [
+            {
+              "reasoningEffort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "reasoningEffort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "reasoningEffort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "reasoningEffort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            }
+          ],
+          "defaultReasoningEffort": "medium"
+        }
+      ],
+      "models": [
+        {
+          "id": "gpt-6.1-sol",
+          "label": "GPT-6.1-Sol",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "low",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems",
+            "ultra": "Maximum reasoning with automatic task delegation"
+          }
+        },
+        {
+          "id": "gpt-6-astra",
+          "label": "GPT-6-Astra",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "low",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems",
+            "ultra": "Maximum reasoning with automatic task delegation"
+          }
+        },
+        {
+          "id": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "medium",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems",
+            "ultra": "Maximum reasoning with automatic task delegation"
+          }
+        },
+        {
+          "id": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "medium",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems"
+          }
+        },
+        {
+          "id": "gpt-5.6-sol",
+          "label": "GPT-5.6-Sol",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "low",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems",
+            "ultra": "Maximum reasoning with automatic task delegation"
+          }
+        },
+        {
+          "id": "gpt-5.6-terra",
+          "label": "GPT-5.6-Terra",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "medium",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems",
+            "ultra": "Maximum reasoning with automatic task delegation"
+          }
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "label": "GPT-5.6-Luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "model/list.supportedReasoningEfforts",
+          "default_effort": "medium",
+          "effort_descriptions": {
+            "low": "Fast responses with lighter reasoning",
+            "medium": "Balances speed and reasoning depth for everyday tasks",
+            "high": "Greater reasoning depth for complex problems",
+            "xhigh": "Extra high reasoning depth for complex problems",
+            "max": "Maximum reasoning depth for the hardest problems"
+          }
+        }
+      ]
+    },
+    "claude": {
+      "method": "control initialize",
+      "raw_models": [
+        {
+          "value": "opus",
+          "resolvedModel": "claude-opus-5-5",
+          "displayName": "Opus 5.5",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "sonnet",
+          "resolvedModel": "claude-sonnet-5-5",
+          "displayName": "Sonnet 5.5",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "fable",
+          "resolvedModel": "claude-fable-5-1",
+          "displayName": "Fable 5.1",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "haiku",
+          "resolvedModel": "claude-haiku-5-5",
+          "displayName": "Haiku 5.5",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-haiku-4-5-20251001",
+          "resolvedModel": "claude-haiku-4-5-20251001",
+          "displayName": "Haiku 4.5"
+        },
+        {
+          "value": "claude-sonnet-5",
+          "resolvedModel": "claude-sonnet-5",
+          "displayName": "Sonnet 5",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-opus-5",
+          "resolvedModel": "claude-opus-5",
+          "displayName": "Opus 5",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-fable-5",
+          "resolvedModel": "claude-fable-5",
+          "displayName": "Fable 5",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-opus-4-8",
+          "resolvedModel": "claude-opus-4-8",
+          "displayName": "Opus 4.8",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-opus-4-7",
+          "resolvedModel": "claude-opus-4-7",
+          "displayName": "Opus 4.7",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-opus-4-6",
+          "resolvedModel": "claude-opus-4-6",
+          "displayName": "Opus 4.6",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ]
+        },
+        {
+          "value": "claude-sonnet-4-6",
+          "resolvedModel": "claude-sonnet-4-6",
+          "displayName": "Sonnet 4.6",
+          "supportsEffort": true,
+          "supportedEffortLevels": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ]
+        }
+      ],
+      "models": [
+        {
+          "id": "claude-opus-5-5",
+          "label": "Opus 5.5",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-sonnet-5-5",
+          "label": "Sonnet 5.5",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-fable-5-1",
+          "label": "Fable 5.1",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-haiku-5-5",
+          "label": "Haiku 5.5",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-haiku-4-5-20251001",
+          "label": "Haiku 4.5",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-sonnet-5",
+          "label": "Sonnet 5",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-opus-5",
+          "label": "Opus 5",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-fable-5",
+          "label": "Fable 5",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-opus-4-8",
+          "label": "Opus 4.8",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-opus-4-7",
+          "label": "Opus 4.7",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-opus-4-6",
+          "label": "Opus 4.6",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "label": "Sonnet 4.6",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "effort_source": "initialize.models.supportedEffortLevels",
+          "default_effort": null,
+          "effort_descriptions": {}
+        }
+      ]
+    },
+    "gemini": {
+      "method": "GET models (OpenAI compatibility)",
+      "response_field_names": [
+        "created",
+        "display_name",
+        "id",
+        "object",
+        "owned_by"
+      ],
+      "raw_models": [
+        {
+          "id": "models/gemini-2.5-flash",
+          "display_name": "Gemini 2.5 Flash"
+        },
+        {
+          "id": "models/gemini-2.5-pro",
+          "display_name": "Gemini 2.5 Pro"
+        },
+        {
+          "id": "models/gemini-2.5-flash-preview-tts",
+          "display_name": "Gemini 2.5 Flash Preview TTS"
+        },
+        {
+          "id": "models/gemini-2.5-pro-preview-tts",
+          "display_name": "Gemini 2.5 Pro Preview TTS"
+        },
+        {
+          "id": "models/gemma-4-26b-a4b-it",
+          "display_name": "Gemma 4 26B A4B IT"
+        },
+        {
+          "id": "models/gemma-4-31b-it",
+          "display_name": "Gemma 4 31B IT"
+        },
+        {
+          "id": "models/gemini-flash-latest",
+          "display_name": "Gemini Flash Latest"
+        },
+        {
+          "id": "models/gemini-flash-lite-latest",
+          "display_name": "Gemini Flash-Lite Latest"
+        },
+        {
+          "id": "models/gemini-pro-latest",
+          "display_name": "Gemini Pro Latest"
+        },
+        {
+          "id": "models/gemini-2.5-flash-lite",
+          "display_name": "Gemini 2.5 Flash-Lite"
+        },
+        {
+          "id": "models/gemini-2.5-flash-image",
+          "display_name": "Nano Banana"
+        },
+        {
+          "id": "models/gemini-3-flash-preview",
+          "display_name": "Gemini 3 Flash Preview"
+        },
+        {
+          "id": "models/gemini-3.1-pro-preview",
+          "display_name": "Gemini 3.1 Pro Preview"
+        },
+        {
+          "id": "models/gemini-3.1-pro-preview-customtools",
+          "display_name": "Gemini 3.1 Pro Preview Custom Tools"
+        },
+        {
+          "id": "models/gemini-3.1-flash-lite-preview",
+          "display_name": "Gemini 3.1 Flash Lite Preview"
+        },
+        {
+          "id": "models/gemini-3.1-flash-lite",
+          "display_name": "Gemini 3.1 Flash Lite"
+        },
+        {
+          "id": "models/gemini-3-pro-image-preview",
+          "display_name": "Nano Banana Pro"
+        },
+        {
+          "id": "models/gemini-3-pro-image",
+          "display_name": "Nano Banana Pro"
+        },
+        {
+          "id": "models/nano-banana-pro-preview",
+          "display_name": "Nano Banana Pro"
+        },
+        {
+          "id": "models/gemini-3.1-flash-image-preview",
+          "display_name": "Nano Banana 2"
+        },
+        {
+          "id": "models/gemini-3.1-flash-image",
+          "display_name": "Nano Banana 2"
+        },
+        {
+          "id": "models/gemini-3.1-flash-lite-image",
+          "display_name": "Nano Banana 2 Lite"
+        },
+        {
+          "id": "models/gemini-nano-banana-2.1",
+          "display_name": "Nano Banana 2.1"
+        },
+        {
+          "id": "models/gemini-3.5-flash",
+          "display_name": "Gemini 3.5 Flash"
+        },
+        {
+          "id": "models/gemini-3.5-flash-lite",
+          "display_name": "Gemini 3.5 Flash Lite"
+        },
+        {
+          "id": "models/gemini-omni-flash-preview",
+          "display_name": "Gemini Omni Flash Preview"
+        },
+        {
+          "id": "models/gemini-omni-1.1-flash",
+          "display_name": "Gemini Omni 1.1 Flash"
+        },
+        {
+          "id": "models/gemini-3.5-transcribe",
+          "display_name": "Gemini 3.5 Transcribe"
+        },
+        {
+          "id": "models/gemini-3.6-flash",
+          "display_name": "Gemini 3.6 Flash"
+        },
+        {
+          "id": "models/gemini-3.7-flash",
+          "display_name": "Gemini 3.7 Flash"
+        },
+        {
+          "id": "models/gemini-3.8-flash",
+          "display_name": "Gemini 3.8 Flash"
+        },
+        {
+          "id": "models/gemini-4-argon",
+          "display_name": "Gemini 4 Argon"
+        },
+        {
+          "id": "models/lyria-3-clip-preview",
+          "display_name": "Lyria 3 Clip Preview"
+        },
+        {
+          "id": "models/lyria-3-pro-preview",
+          "display_name": "Lyria 3 Pro Preview"
+        },
+        {
+          "id": "models/lyria-3.5",
+          "display_name": "Lyria 3.5"
+        },
+        {
+          "id": "models/gemini-3.1-flash-tts-preview",
+          "display_name": "Gemini 3.1 Flash TTS Preview"
+        },
+        {
+          "id": "models/gemini-3.8-flash-tts",
+          "display_name": "Gemini 3.8 Flash TTS"
+        },
+        {
+          "id": "models/gemini-3.8-flash-lite-tts",
+          "display_name": "Gemini 3.8 Flash Lite TTS"
+        },
+        {
+          "id": "models/gemini-robotics-er-2-preview",
+          "display_name": "Gemini Robotics-ER 2 Preview"
+        },
+        {
+          "id": "models/gemini-2.5-computer-use-preview-10-2025",
+          "display_name": "Gemini 2.5 Computer Use Preview 10-2025"
+        },
+        {
+          "id": "models/antigravity-preview-05-2026",
+          "display_name": "Antigravity Agent Preview"
+        },
+        {
+          "id": "models/antigravity-preview-09-2026",
+          "display_name": "Antigravity Agent Preview"
+        },
+        {
+          "id": "models/antigravity-preview-latest",
+          "display_name": "Antigravity Agent Preview Latest"
+        },
+        {
+          "id": "models/deep-research-max-preview-04-2026",
+          "display_name": "Deep Research Max Preview (Apr-21-2026)"
+        },
+        {
+          "id": "models/deep-research-preview-04-2026",
+          "display_name": "Deep Research Preview (Apr-21-2026)"
+        },
+        {
+          "id": "models/deep-research-pro-preview-12-2025",
+          "display_name": "Deep Research Pro Preview (Dec-12-2025)"
+        },
+        {
+          "id": "models/gemini-embedding-001",
+          "display_name": "Gemini Embedding 001"
+        },
+        {
+          "id": "models/gemini-embedding-2-preview",
+          "display_name": "Gemini Embedding 2 Preview"
+        },
+        {
+          "id": "models/gemini-embedding-2",
+          "display_name": "Gemini Embedding 2"
+        },
+        {
+          "id": "models/aqa",
+          "display_name": "Model that performs Attributed Question Answering."
+        },
+        {
+          "id": "models/veo-3.1-generate-preview",
+          "display_name": "Veo 3.1"
+        },
+        {
+          "id": "models/veo-3.1-fast-generate-preview",
+          "display_name": "Veo 3.1 fast"
+        },
+        {
+          "id": "models/veo-3.1-lite-generate-preview",
+          "display_name": "Veo 3.1 lite"
+        },
+        {
+          "id": "models/gemini-3.5-transcribe-live",
+          "display_name": "Gemini 3.5 Transcribe Live"
+        },
+        {
+          "id": "models/gemini-2.5-flash-native-audio-latest",
+          "display_name": "Gemini 2.5 Flash Native Audio Latest"
+        },
+        {
+          "id": "models/gemini-2.5-flash-native-audio-preview-09-2025",
+          "display_name": "Gemini 2.5 Flash Native Audio Preview 09-2025"
+        },
+        {
+          "id": "models/gemini-2.5-flash-native-audio-preview-12-2025",
+          "display_name": "Gemini 2.5 Flash Native Audio Preview 12-2025"
+        },
+        {
+          "id": "models/gemini-3.1-flash-live-preview",
+          "display_name": "Gemini 3.1 Flash Live Preview"
+        },
+        {
+          "id": "models/gemini-3.8-live",
+          "display_name": "Gemini 3.8 Live"
+        },
+        {
+          "id": "models/gemini-3.8-live-extended-thinking",
+          "display_name": "Gemini 3.8 Live Extended Thinking"
+        },
+        {
+          "id": "models/gemini-robotics-er-2-streaming-preview",
+          "display_name": "Gemini Robotics-ER 2 Streaming Preview"
+        },
+        {
+          "id": "models/gemini-3.5-live-translate-preview",
+          "display_name": "Gemini 3.5 Live Translate Preview"
+        },
+        {
+          "id": "models/lyria-realtime-exp",
+          "display_name": "Lyria Realtime Experimental"
+        }
+      ],
+      "models": [
+        {
+          "id": "models/gemini-2.5-flash",
+          "label": "Gemini 2.5 Flash",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-pro",
+          "label": "Gemini 2.5 Pro",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-flash-preview-tts",
+          "label": "Gemini 2.5 Flash Preview TTS",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-pro-preview-tts",
+          "label": "Gemini 2.5 Pro Preview TTS",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemma-4-26b-a4b-it",
+          "label": "Gemma 4 26B A4B IT",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemma-4-31b-it",
+          "label": "Gemma 4 31B IT",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-flash-latest",
+          "label": "Gemini Flash Latest",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-flash-lite-latest",
+          "label": "Gemini Flash-Lite Latest",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-pro-latest",
+          "label": "Gemini Pro Latest",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-flash-lite",
+          "label": "Gemini 2.5 Flash-Lite",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-flash-image",
+          "label": "Nano Banana",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3-flash-preview",
+          "label": "Gemini 3 Flash Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-pro-preview",
+          "label": "Gemini 3.1 Pro Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-pro-preview-customtools",
+          "label": "Gemini 3.1 Pro Preview Custom Tools",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-lite-preview",
+          "label": "Gemini 3.1 Flash Lite Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-lite",
+          "label": "Gemini 3.1 Flash Lite",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3-pro-image-preview",
+          "label": "Nano Banana Pro",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3-pro-image",
+          "label": "Nano Banana Pro",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/nano-banana-pro-preview",
+          "label": "Nano Banana Pro",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-image-preview",
+          "label": "Nano Banana 2",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-image",
+          "label": "Nano Banana 2",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-lite-image",
+          "label": "Nano Banana 2 Lite",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-nano-banana-2.1",
+          "label": "Nano Banana 2.1",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.5-flash",
+          "label": "Gemini 3.5 Flash",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.5-flash-lite",
+          "label": "Gemini 3.5 Flash Lite",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-omni-flash-preview",
+          "label": "Gemini Omni Flash Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-omni-1.1-flash",
+          "label": "Gemini Omni 1.1 Flash",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.5-transcribe",
+          "label": "Gemini 3.5 Transcribe",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.6-flash",
+          "label": "Gemini 3.6 Flash",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.7-flash",
+          "label": "Gemini 3.7 Flash",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.8-flash",
+          "label": "Gemini 3.8 Flash",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-4-argon",
+          "label": "Gemini 4 Argon",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/lyria-3-clip-preview",
+          "label": "Lyria 3 Clip Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/lyria-3-pro-preview",
+          "label": "Lyria 3 Pro Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/lyria-3.5",
+          "label": "Lyria 3.5",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-tts-preview",
+          "label": "Gemini 3.1 Flash TTS Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.8-flash-tts",
+          "label": "Gemini 3.8 Flash TTS",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.8-flash-lite-tts",
+          "label": "Gemini 3.8 Flash Lite TTS",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-robotics-er-2-preview",
+          "label": "Gemini Robotics-ER 2 Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-computer-use-preview-10-2025",
+          "label": "Gemini 2.5 Computer Use Preview 10-2025",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/antigravity-preview-05-2026",
+          "label": "Antigravity Agent Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/antigravity-preview-09-2026",
+          "label": "Antigravity Agent Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/antigravity-preview-latest",
+          "label": "Antigravity Agent Preview Latest",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/deep-research-max-preview-04-2026",
+          "label": "Deep Research Max Preview (Apr-21-2026)",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/deep-research-preview-04-2026",
+          "label": "Deep Research Preview (Apr-21-2026)",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/deep-research-pro-preview-12-2025",
+          "label": "Deep Research Pro Preview (Dec-12-2025)",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-embedding-001",
+          "label": "Gemini Embedding 001",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-embedding-2-preview",
+          "label": "Gemini Embedding 2 Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-embedding-2",
+          "label": "Gemini Embedding 2",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/aqa",
+          "label": "Model that performs Attributed Question Answering.",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/veo-3.1-generate-preview",
+          "label": "Veo 3.1",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/veo-3.1-fast-generate-preview",
+          "label": "Veo 3.1 fast",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/veo-3.1-lite-generate-preview",
+          "label": "Veo 3.1 lite",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.5-transcribe-live",
+          "label": "Gemini 3.5 Transcribe Live",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-flash-native-audio-latest",
+          "label": "Gemini 2.5 Flash Native Audio Latest",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-flash-native-audio-preview-09-2025",
+          "label": "Gemini 2.5 Flash Native Audio Preview 09-2025",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-2.5-flash-native-audio-preview-12-2025",
+          "label": "Gemini 2.5 Flash Native Audio Preview 12-2025",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.1-flash-live-preview",
+          "label": "Gemini 3.1 Flash Live Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.8-live",
+          "label": "Gemini 3.8 Live",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.8-live-extended-thinking",
+          "label": "Gemini 3.8 Live Extended Thinking",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-robotics-er-2-streaming-preview",
+          "label": "Gemini Robotics-ER 2 Streaming Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/gemini-3.5-live-translate-preview",
+          "label": "Gemini 3.5 Live Translate Preview",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        },
+        {
+          "id": "models/lyria-realtime-exp",
+          "label": "Lyria Realtime Experimental",
+          "efforts": [],
+          "effort_source": "",
+          "default_effort": null,
+          "effort_descriptions": {}
+        }
+      ]
+    },
+    "deepseek": {
+      "method": "GET models (OpenAI compatibility)",
+      "response_field_names": [
+        "api_capabilities",
+        "context_window",
+        "created",
+        "effort",
+        "id",
+        "input_modalities",
+        "max_output_tokens",
+        "name",
+        "object",
+        "output_modalities",
+        "owned_by"
+      ],
+      "raw_models": [
+        {
+          "id": "deepseek-flash",
+          "name": "DeepSeek-V4.1-Flash",
+          "effort": {
+            "supported_levels": [
+              "low",
+              "high",
+              "max"
+            ],
+            "default_level": "high"
+          }
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek-V4-Pro",
+          "effort": {
+            "supported_levels": [
+              "low",
+              "high",
+              "max"
+            ],
+            "default_level": "high"
+          }
+        }
+      ],
+      "models": [
+        {
+          "id": "deepseek-flash",
+          "label": "DeepSeek-V4.1-Flash",
+          "efforts": [
+            "low",
+            "high",
+            "max"
+          ],
+          "effort_source": "GET /models.effort.supported_levels",
+          "default_effort": "high",
+          "effort_descriptions": {}
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "label": "DeepSeek-V4-Pro",
+          "efforts": [
+            "low",
+            "high",
+            "max"
+          ],
+          "effort_source": "GET /models.effort.supported_levels",
+          "default_effort": "high",
+          "effort_descriptions": {}
+        }
+      ]
+    }
+  }
+}

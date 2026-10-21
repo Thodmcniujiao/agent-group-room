@@ -1,0 +1,18 @@
+{"agent": "claude", "mode": "chat", "model": "claude-opus-5-5", "ok": true, "seconds": 7.69, "turns": 2, "roles": ["discussion", "discussion"]}
+{"agent": "chatgpt", "mode": "chat", "model": "gpt-6.1-sol", "ok": true, "seconds": 8.75, "turns": 2, "roles": ["discussion", "discussion"]}
+[10/21/26 16:27:26] INFO     HTTP Request: POST                 _client.py:1740
+                             https://api.deepseek.com/chat/comp                
+                             letions "HTTP/1.1 200 OK"                         
+[10/21/26 16:27:27] INFO     HTTP Request: POST                 _client.py:1740
+                             https://api.deepseek.com/chat/comp                
+                             letions "HTTP/1.1 200 OK"                         
+[10/21/26 16:27:28] INFO     HTTP Request: POST                 _client.py:1740
+                             https://generativelanguage.googlea                
+                             pis.com/v1beta/interactions                       
+                             "HTTP/1.1 200 OK"                                 
+{"agent": "deepseek", "mode": "chat", "model": "deepseek-flash", "ok": true, "seconds": 2.42, "turns": 2, "roles": ["executor", "executor"]}
+[10/21/26 16:27:31] INFO     HTTP Request: POST                 _client.py:1740
+                             https://generativelanguage.googlea                
+                             pis.com/v1beta/interactions                       
+                             "HTTP/1.1 200 OK"                                 
+{"agent": "gemini", "mode": "chat", "model": "models/gemini-3.8-flash", "ok": true, "seconds": 6.44, "turns": 2, "roles": ["discussion", "discussion"]}

@@ -28,8 +28,18 @@ def _selected_config(*args, **kwargs):
         changes.update(base_url=os.environ['TIERED_MEMBER_BASE_URL'],api_key=os.environ['TIERED_MEMBER_API_KEY'])
         if 'api.deepseek.com' not in changes['base_url']:
             changes['reasoning_effort']='provider-default'
+    if os.environ.get('TIERED_CONTEXT_FILE'):changes['max_output_tokens']=16384
+    if 'TIERED_MEMBER_EFFORT' in os.environ:
+        from preferences import effort_id
+        changes['reasoning_effort']=effort_id(os.environ['TIERED_MEMBER_EFFORT']) or 'provider-default'
     return replace(cfg,**changes) if changes else cfg
 upstream._load_config = _selected_config
+
+if os.environ.get('TIERED_CONTEXT_FILE'):
+    from pathlib import Path
+    sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'gui'))
+    from execution_context import install
+    install()
 
 
 class ProgressHandler(logging.Handler):

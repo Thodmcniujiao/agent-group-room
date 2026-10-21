@@ -1,0 +1,16 @@
+- heading "DeepSeek · 调试控制台" [level=2, ref=e618]
+- button "×" [ref=e619]
+- combobox "本次测试模型" [expanded=false, ref=e620]: DeepSeek-V4.1-Flash · deepseek-flash
+  - option "请选择模型" [disabled, ref=e642]
+  - option "DeepSeek-V4.1-Flash · deepseek-flash" [disabled, ref=e643]
+  - option "DeepSeek-V4-Pro · deepseek-v4-pro" [disabled, ref=e644]
+  - option "＋ 自定义模型 ID" [disabled, ref=e645]
+- combobox "推理强度" [expanded=false, ref=e621]: 未指定（不发送强度参数）
+  - option "未指定（不发送强度参数）" [selected, ref=e646]
+  - option "low" [ref=e647]
+  - option "high" [ref=e648]
+  - option "max" [ref=e649]
+- generic "此 Agent 的调试输出" [ref=e622] focusable [tabindex]
+- textbox "测试指令" [required, ref=e623]
+- button "连接测试" [ref=e624]
+- button "发送指令 ↑" [ref=e625]

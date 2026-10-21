@@ -1,0 +1,4 @@
+- dialog
+  - heading "DeepSeek · 上下文投递" [level=2, ref=e328]
+  - button "×" [ref=e329]
+  - button "关闭" [ref=e330]

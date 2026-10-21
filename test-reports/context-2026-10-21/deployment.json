@@ -1,0 +1,22 @@
+{
+  "version": "0.10.0",
+  "room_count_before": 3,
+  "room_count_after": 3,
+  "message_count_before": 29,
+  "message_count_after": 29,
+  "original_messages_unchanged": true,
+  "room_members_models_monitor_pause_preserved": true,
+  "encrypted_credentials_unchanged": true,
+  "agent_library_preferences_unchanged": true,
+  "all_existing_rooms_default_executor_deepseek": true,
+  "health": {
+    "service": "tiered-dev-gui",
+    "version": "0.10.0"
+  },
+  "javascript_syntax": {
+    "exit_code": 0
+  },
+  "python_compile": {
+    "exit_code": 0
+  }
+}

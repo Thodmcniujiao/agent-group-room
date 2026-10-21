@@ -12,14 +12,14 @@ SECRET = STATE/'deepseek.dpapi'
 PROFILE = Path.home()/'.codex/tiered.config.toml'
 LOCK = threading.RLock()
 DEFAULTS = {'models': {'chatgpt': 'gpt-6-astra', 'claude': 'claude-opus-5-5', 'deepseek': 'deepseek-flash'},
-            'effort': {'chatgpt': 'high', 'claude': 'high'}, 'pause_before_execution': False,
+            'effort': {'chatgpt': None, 'claude': None}, 'pause_before_execution': False,
             'cooperation_policy': '按任务需要动态安排团队成员协作。让不同意见得到充分表达，有证据地检查是否遵守我的要求；发现偏离就纠正，避免无意义的重复讨论。',
-            'supervisor': {'provider': 'chatgpt', 'model': 'gpt-6-astra', 'effort': 'high', 'max_steps': 12}}
+            'supervisor': {'provider': 'chatgpt', 'model': 'gpt-6-astra', 'effort': None, 'max_steps': 12}}
 
 
 def default_members(value):
     return [{'id':p,'name':n,'backend':p,'model':value['models'][p],
-             'effort':value['effort'].get(p,'high'),'base_url':'https://api.deepseek.com' if p=='deepseek' else '',
+             'effort':value['effort'].get(p),'base_url':'https://api.deepseek.com' if p=='deepseek' else '',
              'no_auth':False} for p,n in [('chatgpt','ChatGPT'),('claude','Claude'),('deepseek','DeepSeek')]]
 
 
@@ -29,9 +29,23 @@ def member_id(value):
     return value
 
 
-def validate_members(members):
-    if not isinstance(members,list) or not 1<=len(members)<=20:
-        raise ValueError('团队需要包含 1 至 20 位成员。')
+def provider_group(agent):
+    """Default vendor grouping also joins CLI and API profiles of one vendor."""
+    if agent.get('group'): return agent['group']
+    if agent['backend']=='chatgpt': return 'OpenAI / ChatGPT'
+    if agent['backend']=='claude': return 'Anthropic / Claude'
+    if agent['backend']=='deepseek': return 'DeepSeek'
+    host=(urlsplit(agent.get('base_url','')).hostname or '').lower()
+    for domain,label in [('googleapis.com','Google / Gemini'),('openai.com','OpenAI / ChatGPT'),
+                         ('anthropic.com','Anthropic / Claude'),('deepseek.com','DeepSeek'),
+                         ('aliyuncs.com','阿里 / Qwen'),('openrouter.ai','OpenRouter')]:
+        if host==domain or host.endswith('.'+domain): return label
+    return host or '自定义服务'
+
+
+def validate_members(members,limit=20):
+    if not isinstance(members,list) or not 0<=len(members)<=limit:
+        raise ValueError(f'最多可配置 {limit} 位 Agent。')
     result=[];seen=set()
     for m in members:
         if not isinstance(m,dict): raise ValueError('成员配置无效。')
@@ -41,8 +55,7 @@ def validate_members(members):
         if backend not in ['chatgpt','claude','deepseek','openai-compatible']: raise ValueError('连接方式无效。')
         name=m.get('name','')
         if not isinstance(name,str) or not 1<=len(name.strip())<=40: raise ValueError('成员名称需要 1 至 40 字符。')
-        model=model_id(m.get('model'));effort=m.get('effort','high')
-        if effort not in ['low','medium','high','xhigh','max']: raise ValueError('推理强度无效。')
+        model=model_id(m.get('model'));effort=effort_id(m.get('effort'))
         endpoint=m.get('base_url','') if backend=='openai-compatible' else ('https://api.deepseek.com' if backend=='deepseek' else '')
         no_auth=bool(m.get('no_auth',False))
         if backend=='openai-compatible':
@@ -51,8 +64,35 @@ def validate_members(members):
             if not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or any(c.isspace() for c in endpoint): raise ValueError('API 地址需包含主机，不允许内嵌凭据、查询或空白。')
             if parsed.scheme!='https' and not (parsed.scheme=='http' and parsed.hostname in ['127.0.0.1','localhost','::1']): raise ValueError('API 使用 HTTPS；本机服务可使用 HTTP。')
             if no_auth and parsed.hostname not in ['127.0.0.1','localhost','::1']: raise ValueError('免密钥模式仅用于本机服务。')
-        result.append(dict(id=mid,name=name.strip(),backend=backend,model=model,effort=effort,base_url=endpoint.rstrip('/'),no_auth=no_auth))
+        group=provider_group(m)
+        if not isinstance(group,str) or not 1<=len(group.strip())<=60: raise ValueError('服务商分组需要 1 至 60 字符。')
+        result.append(dict(id=mid,name=name.strip(),backend=backend,model=model,effort=effort,base_url=endpoint.rstrip('/'),no_auth=no_auth,group=group.strip()))
     return result
+
+
+def resolve_team(agents,team):
+    """Only saved IDs may enter the team; connection details always come from the library."""
+    if not isinstance(team,list) or len(team)>100: raise ValueError('团队选择无效。')
+    library={a['id']:a for a in agents};seen=set();refs=[];members=[]
+    for item in team:
+        if not isinstance(item,dict): raise ValueError('团队选择无效。')
+        aid=member_id(item.get('agent_id'))
+        if aid in seen or aid not in library: raise ValueError('请选择 Agent 管理中已保存且不重复的 Agent。')
+        seen.add(aid);agent=library[aid]
+        model=model_id(item.get('model',agent['model']));effort=effort_id(item.get('effort',agent['effort']))
+        ref=dict(agent_id=aid,model=model,effort=effort,enabled=bool(item.get('enabled',True)))
+        refs.append(ref)
+        if ref['enabled']: members.append({**agent,'agent_id':aid,'model':model,'effort':effort})
+    if len(members)>20: raise ValueError('当前团队最多启用 20 位成员。')
+    return refs,members
+
+
+def effort_id(value):
+    """Validate syntax only. Supported values come from each model's metadata."""
+    if value is None or value=='':return None
+    if not isinstance(value,str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}',value):
+        raise ValueError('推理强度格式无效。')
+    return value
 
 
 def model_id(value):
@@ -63,6 +103,7 @@ def model_id(value):
 
 def load():
     result = json.loads(json.dumps(DEFAULTS))
+    saved={}
     try:
         saved = json.loads(PREFS.read_text(encoding='utf-8'))
         for key in ['models', 'effort']:
@@ -71,14 +112,23 @@ def load():
             if key in saved:
                 result[key] = saved[key]
         result['supervisor'].update(saved.get('supervisor',{}))
-        result['members']=saved.get('members') or default_members(result)
-        result['member_names']=saved.get('member_names',{})
     except (FileNotFoundError, ValueError):
         pass
     if result['cooperation_policy']=='按任务需要动态安排三方协作。让不同意见得到充分表达，有证据地检查是否遵守我的要求；发现偏离就纠正，避免无意义的重复讨论。':result['cooperation_policy']=DEFAULTS['cooperation_policy']
-    result.setdefault('members',default_members(result))
-    result.setdefault('member_names',{})
-    result['member_names'].update({m['id']:m['name'] for m in result['members']})
+    # v1 members were both credentials and membership. Keep their IDs so DPAPI files still work.
+    legacy=saved.get('members',default_members(result))
+    library=saved.get('agents',legacy)
+    if 'agents' not in saved:
+        library=list(library)
+        # Older removal kept historical names and the built-in model choices, but lost the row.
+        for original in default_members(result):
+            if original['id'] in saved.get('member_names',{}) and original['id'] not in {a['id'] for a in library}:
+                library.append({**original,'name':saved['member_names'][original['id']]})
+    result['agents']=validate_members(library,limit=100)
+    team=saved.get('team',[dict(agent_id=m['id'],model=m['model'],effort=m.get('effort')) for m in legacy])
+    result['team'],result['members']=resolve_team(result['agents'],team)
+    result['schema_version']=2
+    result['member_names']={**saved.get('member_names',{}),**{m['id']:m['name'] for m in result['agents']}}
     return result
 
 
@@ -89,9 +139,9 @@ def save(value):
             if provider in value.get('models', {}):
                 result['models'][provider] = model_id(value['models'][provider])
         for provider, effort in value.get('effort', {}).items():
-            if provider not in DEFAULTS['effort'] or effort not in ['low', 'medium', 'high', 'xhigh', 'max']:
+            if provider not in DEFAULTS['effort']:
                 raise ValueError('推理强度无效。')
-            result['effort'][provider] = effort
+            result['effort'][provider] = effort_id(effort)
         if 'cooperation_policy' in value:
             text=value['cooperation_policy']
             if not isinstance(text,str) or not 1<=len(text.strip())<=16000:
@@ -101,29 +151,52 @@ def save(value):
             config={**result['supervisor'],**value['supervisor']}
             member_id(config['provider'])
             model_id(config['model'])
-            if config['effort'] not in ['low','medium','high','xhigh','max']:
-                raise ValueError('监工推理强度无效。')
+            config['effort']=effort_id(config.get('effort'))
             if not isinstance(config['max_steps'],int) or not 2<=config['max_steps']<=32:
                 raise ValueError('监工协作轮数应为 2 至 32。')
             result['supervisor']=config
+        if 'agents' in value:
+            result['agents']=validate_members(value['agents'],limit=100)
+        if 'team' in value: result['team']=value['team']
         if 'members' in value:
-            result['members']=validate_members(value['members'])
-            if result['supervisor']['provider'] not in {m['id'] for m in result['members']}:
-                raise ValueError('请先为监工选择仍在团队中的连接。')
-            for m in result['members']:
+            # Compatibility for CLI integrations: replacing the team never erases saved agents.
+            active=validate_members(value['members'])
+            library={a['id']:a for a in result['agents']}
+            library.update({m['id']:m for m in active})
+            result['agents']=validate_members(list(library.values()),limit=100)
+            chosen={m['id']:m for m in active}
+            refs={r['agent_id']:r for r in result['team']}
+            for aid in refs: refs[aid]['enabled']=aid in chosen
+            for aid,m in chosen.items(): refs[aid]=dict(agent_id=aid,model=m['model'],effort=m['effort'],enabled=True)
+            result['team']=list(refs.values())
+            for m in active:
                 if m['id'] in result['models']:
                     result['models'][m['id']]=m['model']
                     if m['id'] in result['effort']:result['effort'][m['id']]=m['effort']
         elif 'models' in value or 'effort' in value:
-            for m in result['members']:
-                if m['id'] in value.get('models',{}):m['model']=result['models'][m['id']]
-                if m['id'] in value.get('effort',{}):m['effort']=result['effort'][m['id']]
+            for m in result['agents']:
+                for field in ['model','effort']:
+                    key='models' if field=='model' else 'effort'
+                    if m['id'] in value.get(key,{}):
+                        m[field]=result[key][m['id']]
+                        for ref in result['team']:
+                            if ref['agent_id']==m['id']:ref[field]=m[field]
+        result['team'],result['members']=resolve_team(result['agents'],result['team'])
+        if result['supervisor']['provider'] not in {a['id'] for a in result['agents']}:
+            raise ValueError('请为监工选择 Agent 管理中已保存的连接。')
+        for m in result['members']:
+            if m['id'] in result['models']:result['models'][m['id']]=m['model']
+            if m['id'] in result['effort']:result['effort'][m['id']]=m['effort']
         if 'pause_before_execution' in value:
             result['pause_before_execution'] = bool(value['pause_before_execution'])
-        result['member_names'].update({m['id']:m['name'] for m in result['members']})
+        result['member_names'].update({m['id']:m['name'] for m in result['agents']})
         STATE.mkdir(parents=True, exist_ok=True)
+        if PREFS.exists() and json.loads(PREFS.read_text(encoding='utf-8')).get('schema_version')!=2:
+            backup=STATE/'backups'/'preferences-before-agent-library.json'
+            backup.parent.mkdir(parents=True,exist_ok=True)
+            if not backup.exists():backup.write_bytes(PREFS.read_bytes())
         temporary = PREFS.with_suffix('.new')
-        temporary.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+        temporary.write_text(json.dumps({k:v for k,v in result.items() if k!='members'}, ensure_ascii=False, indent=2), encoding='utf-8')
         os.replace(temporary, PREFS)
         # This is the framework's dedicated CLI profile, not the user's default.
         import tomlkit
@@ -131,7 +204,8 @@ def save(value):
         profile.parent.mkdir(parents=True,exist_ok=True)
         data=tomlkit.parse(profile.read_text(encoding='utf-8')) if profile.exists() else tomlkit.document()
         data['model']=result['models']['chatgpt']
-        data['model_reasoning_effort']=result['effort']['chatgpt']
+        if result['effort']['chatgpt'] is None:data.pop('model_reasoning_effort',None)
+        else:data['model_reasoning_effort']=result['effort']['chatgpt']
         pending_profile=profile.with_name(profile.name+'.new')
         pending_profile.write_text(tomlkit.dumps(data),encoding='utf-8')
         os.replace(pending_profile,profile)

@@ -1,0 +1,137 @@
+[
+  {
+    "disabled": false,
+    "id": "effort-chatgpt",
+    "options": [
+      {
+        "text": "未指定（不发送强度参数）",
+        "value": ""
+      },
+      {
+        "text": "low",
+        "value": "low"
+      },
+      {
+        "text": "medium",
+        "value": "medium"
+      },
+      {
+        "text": "high",
+        "value": "high"
+      },
+      {
+        "text": "xhigh",
+        "value": "xhigh"
+      },
+      {
+        "text": "max",
+        "value": "max"
+      },
+      {
+        "text": "ultra",
+        "value": "ultra"
+      }
+    ],
+    "value": ""
+  },
+  {
+    "disabled": false,
+    "id": "effort-claude",
+    "options": [
+      {
+        "text": "未指定（不发送强度参数）",
+        "value": ""
+      },
+      {
+        "text": "low",
+        "value": "low"
+      },
+      {
+        "text": "medium",
+        "value": "medium"
+      },
+      {
+        "text": "high",
+        "value": "high"
+      },
+      {
+        "text": "xhigh",
+        "value": "xhigh"
+      },
+      {
+        "text": "max",
+        "value": "max"
+      }
+    ],
+    "value": "xhigh"
+  },
+  {
+    "disabled": false,
+    "id": "effort-deepseek",
+    "options": [
+      {
+        "text": "未指定（不发送强度参数）",
+        "value": ""
+      },
+      {
+        "text": "low",
+        "value": "low"
+      },
+      {
+        "text": "high",
+        "value": "high"
+      },
+      {
+        "text": "max",
+        "value": "max"
+      }
+    ],
+    "value": ""
+  },
+  {
+    "disabled": true,
+    "id": "effort-gemini",
+    "options": [
+      {
+        "text": "官方未返回推理强度数据",
+        "value": ""
+      }
+    ],
+    "value": ""
+  },
+  {
+    "disabled": false,
+    "id": "supervisor-effort",
+    "options": [
+      {
+        "text": "未指定（不发送强度参数）",
+        "value": ""
+      },
+      {
+        "text": "low",
+        "value": "low"
+      },
+      {
+        "text": "medium",
+        "value": "medium"
+      },
+      {
+        "text": "high",
+        "value": "high"
+      },
+      {
+        "text": "xhigh",
+        "value": "xhigh"
+      },
+      {
+        "text": "max",
+        "value": "max"
+      },
+      {
+        "text": "ultra",
+        "value": "ultra"
+      }
+    ],
+    "value": ""
+  }
+]

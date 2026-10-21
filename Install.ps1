@@ -18,12 +18,16 @@ if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
 if (-not $NoShortcut) {
     $desktop = [Environment]::GetFolderPath('DesktopDirectory')
     $wsh = New-Object -ComObject WScript.Shell
-    $shortcut = $wsh.CreateShortcut((Join-Path $desktop 'Agent Group Room.lnk'))
+    $shortcutNames = @('代理协作室.lnk', 'Agent Group Room.lnk') | Where-Object { Test-Path -LiteralPath (Join-Path $desktop $_) }
+    if (-not $shortcutNames) { $shortcutNames = @('Agent Group Room.lnk') }
+    foreach ($shortcutName in $shortcutNames) {
+    $shortcut = $wsh.CreateShortcut((Join-Path $desktop $shortcutName))
     $shortcut.TargetPath = Join-Path $PSScriptRoot '.venv\Scripts\pythonw.exe'
     $shortcut.Arguments = '"' + (Join-Path $PSScriptRoot 'gui\launch.py') + '"'
     $shortcut.WorkingDirectory = $PSScriptRoot
     $shortcut.IconLocation = (Join-Path $PSScriptRoot 'gui\icon.ico') + ',0'
-    $shortcut.Description = 'Configurable agent team with an independent supervisor'
+    $shortcut.Description = 'Agent Group Room desktop app with an independent supervisor'
     $shortcut.Save()
+    }
 }
 Write-Host 'Installed. Run .\Start-GUI.ps1 or open the Agent Group Room shortcut.'

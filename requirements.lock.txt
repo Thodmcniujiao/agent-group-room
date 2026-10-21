@@ -2,9 +2,11 @@ annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
 attrs==26.1.0
+bottle==0.13.4
 certifi==2026.7.22
 cffi==2.1.1
 click==8.5.0
+clr_loader==0.3.1
 colorama==0.4.6
 cryptography==50.0.1
 deepseek-as-subagent @ git+https://github.com/PsChina/deepseek-as-subagent.git@7e54026392f85ccfc796f947faf9ffac3968a49e
@@ -26,6 +28,7 @@ openai==2.54.0
 packaging==26.3
 pathspec==1.1.1
 pluggy==1.6.0
+proxy_tools==0.1.0
 pycparser==3.0
 pydantic==2.13.4
 pydantic-settings==2.15.0
@@ -34,6 +37,8 @@ Pygments==2.21.0
 PyJWT==2.15.1
 python-dotenv==1.2.3
 python-multipart==0.0.32
+pythonnet==3.2.1
+pywebview==6.2.1
 pywin32==312
 PyYAML==6.0.3
 referencing==0.37.0

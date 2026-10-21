@@ -1,0 +1,12 @@
+{
+  "effort": "medium",
+  "levels": [
+    "",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+  ],
+  "model": "gpt-6-luna"
+}

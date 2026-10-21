@@ -1,0 +1,13 @@
+- dialog
+  - heading "Claude · 上下文投递" [level=2, ref=e328]
+  - button "×" [ref=e329]
+  - paragraph
+    - StaticText "这里展示宿主实际准备和投递的消息范围，不代表模型一定理解了每个细节。原文始终保存在此群。"
+  - generic
+    - generic
+      - button "你 · #1 · 4e24436aadca" [ref=e331]
+      - button "ChatGPT · #2 · 91c0fc941433" [ref=e332]
+    - generic
+      - button "你 · #1 · 4e24436aadca" [ref=e333]
+      - button "ChatGPT · #2 · 91c0fc941433" [ref=e334]
+  - button "关闭" [ref=e330]

@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "agent": "chatgpt",
+      "mode": "write",
+      "ok": false,
+      "error": "STATUS: BLOCKED\nFILES: 无；result.txt 写入失败\nTESTS: 未运行（契约禁止运行命令）\nQUESTIONS: 文件写入工具返回 “Failed to write file”，未提供具体原因；需宿主排查写入限制。",
+      "seconds": 9.84
+    }
+  ],
+  "passed": false
+}

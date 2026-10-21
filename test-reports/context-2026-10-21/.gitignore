@@ -1,0 +1,9 @@
+# Reviewed fixture/model-smoke logs, deliberately retained for audit.
+!unit-tests.log
+!live-chat.log
+!live-coding.log
+!live-write.log
+!live-write-initial.log
+!write-chatgpt-diagnostic.log
+!write-chatgpt-retest.log
+!write-chatgpt-final.log

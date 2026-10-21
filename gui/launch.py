@@ -1,4 +1,4 @@
-"""Desktop entry point; starts a hidden loopback service and opens its GUI."""
+"""Start the desktop window; keep the loopback backend reusable across launches."""
 import ctypes
 import json
 import os
@@ -22,17 +22,18 @@ def healthy(port):
         return False
 
 
-def main():
+def ensure_service():
+    """Return a healthy local backend URL without opening any user interface."""
     STATE.mkdir(parents=True,exist_ok=True)
     try:
         old=json.loads((STATE/'service.json').read_text(encoding='utf-8'))
         if healthy(old['port']):
-            webbrowser.open(f"http://127.0.0.1:{old['port']}");return
+            return f"http://127.0.0.1:{old['port']}"
     except (OSError,ValueError,KeyError): pass
     port=None
     for candidate in range(49315,49326):
         if healthy(candidate):
-            webbrowser.open(f'http://127.0.0.1:{candidate}');return
+            return f'http://127.0.0.1:{candidate}'
         with socket.socket() as sock:
             try: sock.bind(('127.0.0.1',candidate));port=candidate;break
             except OSError: pass
@@ -45,9 +46,21 @@ def main():
             stdin=subprocess.DEVNULL,stdout=log,stderr=log,env=env,creationflags=0x08000000,close_fds=True)
     for _ in range(80):
         if healthy(port):
-            webbrowser.open(f'http://127.0.0.1:{port}');return
+            return f'http://127.0.0.1:{port}'
         time.sleep(0.25)
     raise RuntimeError('本机服务启动未完成。日志位于 '+str(STATE/'service.log'))
+
+
+def main():
+    STATE.mkdir(parents=True,exist_ok=True)
+    # pythonw has no console streams. Keep native-host diagnostics available.
+    if sys.stdout is None:sys.stdout=(STATE/'desktop.log').open('a',encoding='utf-8',buffering=1)
+    if sys.stderr is None:sys.stderr=sys.stdout
+    if '--browser' in sys.argv[1:]:
+        webbrowser.open(ensure_service())
+    else:
+        from desktop import run
+        run(ensure_service,STATE)
 
 
 if __name__=='__main__':

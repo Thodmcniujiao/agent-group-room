@@ -16,84 +16,203 @@ from starlette.routing import Route, Mount
 from starlette.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from engines import (ROOT,SCRIPTS,HIDDEN,preferences,auth_status,catalogs,capture,
+from engines import (ROOT,SCRIPTS,HIDDEN,preferences,auth_status,capture,
                      project_path,deepseek_session,read_response,environment)
 from store import Store
 from workflows import Workflows
 import roster
+from debugger import AgentDebugger
+from model_catalog import shared_catalog
+from account_usage import UsageMonitor
+from logins import Logins
+from room_settings import RoomSettings
 
 STATE=Path(os.environ.get('TIERED_GUI_DATA_DIR',str(preferences.STATE/'gui')))
 STORE=Store(STATE)
+ROOMS=RoomSettings(STORE)
 WORK=Workflows(STORE)
 TOKEN=secrets.token_urlsafe(32)
 PORT=int(os.environ.get('TIERED_GUI_PORT','49315'))
 ORIGIN=f'http://127.0.0.1:{PORT}'
 WEB=Path(__file__).parent/'web'
-LOGIN={}
-CATALOG=None
+MODELS=shared_catalog()
+DEBUG=AgentDebugger()
+USAGE=UsageMonitor()
+
+
+def login_complete():
+    roster.invalidate_auth()
+    MODELS.request_refresh(preferences.load())
+    USAGE.request_refresh(preferences.load(),force=True)
+
+
+LOGIN=Logins(login_complete)
 
 
 async def bootstrap(request):
-    global CATALOG
-    if CATALOG is None: CATALOG=await catalogs()
-    return JSONResponse({'token':TOKEN,'preferences':preferences.load(),'catalogs':CATALOG,
-        'connections':await roster.connections(preferences.load()),'rooms':STORE.rooms(),'version':'0.4.0'})
+    selected=preferences.load();MODELS.request_refresh(selected);USAGE.request_refresh(selected)
+    return JSONResponse({'token':TOKEN,'preferences':selected,'model_catalog':MODELS.snapshot(selected),
+        'account_usage':USAGE.snapshot(selected),'connections':await roster.connections(selected),
+        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'version':'0.10.1'})
 
 
 async def health(request):
-    return JSONResponse({'service':'tiered-dev-gui','version':'0.4.0'})
+    return JSONResponse({'service':'tiered-dev-gui','version':'0.10.1'})
 
 
 async def models(request):
-    global CATALOG
-    CATALOG=await catalogs(refresh=True)
-    return JSONResponse(CATALOG)
+    selected=preferences.load()
+    if request.method=='POST':MODELS.request_refresh(selected)
+    return JSONResponse(MODELS.snapshot(selected))
+
+
+async def usage(request):
+    selected=preferences.load()
+    ids=None
+    if 'mid' in request.path_params:
+        mid=request.path_params['mid'];roster.agent(selected,mid);ids=[mid]
+    USAGE.request_refresh(selected,ids,force=request.method=='POST')
+    return JSONResponse(USAGE.snapshot(selected))
 
 
 async def settings(request):
     body=await request.json()
-    if body.get('deepseek_key'): preferences.save_key(body.pop('deepseek_key'))
+    key_changed=bool(body.get('deepseek_key'))
+    if key_changed: preferences.save_key(body.pop('deepseek_key'))
     value=preferences.save(body)
-    return JSONResponse({'preferences':value,'connections':await roster.connections(value)})
+    if key_changed:MODELS.request_refresh(value);USAGE.request_refresh(value,force=True)
+    return JSONResponse({'preferences':value,'connections':await roster.connections(value),'model_catalog':MODELS.snapshot(value),'account_usage':USAGE.snapshot(value)})
 
 
 async def connections(request):
-    return JSONResponse(await roster.connections(preferences.load()))
+    return JSONResponse(await roster.connections(preferences.load(),refresh=True))
+
+
+async def connection_state(request):
+    selected=preferences.load();USAGE.request_refresh(selected)
+    current=ROOMS.load(request.query_params['room_id'],selected) if request.query_params.get('room_id') else None
+    return JSONResponse({'preferences':selected,'connections':await roster.connections(selected,
+        refresh=request.query_params.get('refresh')=='1'),'logins':LOGIN.snapshot(),
+        'model_catalog':MODELS.snapshot(selected),'account_usage':USAGE.snapshot(selected),'room_settings':current})
+
+
+async def room_configuration(request):
+    rid=request.path_params['rid']
+    value=ROOMS.update(rid,await request.json()) if request.method=='POST' else ROOMS.load(rid)
+    return JSONResponse({'room_settings':value})
+
+
+async def room_member(request):
+    rid=request.path_params['rid'];aid=request.path_params['mid'];body=await request.json()
+    if request.url.path.endswith('/membership'):
+        if not isinstance(body,dict):raise ValueError('成员设置无效。')
+        value=ROOMS.membership(rid,aid,body.get('enabled'))
+    else:value=ROOMS.member(rid,aid,body)
+    return JSONResponse({'room_settings':value})
+
+
+async def save_member(request):
+    mid=request.path_params['mid'];preferences.member_id(mid);body=await request.json()
+    if not isinstance(body,dict):raise ValueError('成员设置格式无效。')
+    with preferences.LOCK:
+        selected=preferences.load();members=selected['members'];index=next((i for i,m in enumerate(members) if m['id']==mid),None)
+        if body.pop('create',False):
+            if index is not None:raise ValueError('此成员已存在，请刷新后重试。')
+            members.append({**body,'id':mid})
+        else:
+            if index is None:raise ValueError('成员已被移除，请刷新团队。')
+            if set(body)-{'model','effort'}:raise ValueError('连接与名称请在 Agent 管理中修改。')
+            team=selected['team']
+            for ref in team:
+                if ref['agent_id']==mid:ref.update(body)
+        value=preferences.save({'members':members} if index is None else {'team':team})
+    return JSONResponse({'preferences':value,'connections':await roster.connections(value)})
+
+
+async def save_agent(request):
+    aid=request.path_params['mid'];preferences.member_id(aid);body=await request.json()
+    if not isinstance(body,dict):raise ValueError('Agent 配置格式无效。')
+    with preferences.LOCK:
+        selected=preferences.load();agents=selected['agents']
+        index=next((i for i,a in enumerate(agents) if a['id']==aid),None)
+        if body.pop('create',False):
+            if index is not None:raise ValueError('此 Agent 已存在，请刷新后重试。')
+            agents.append({**body,'id':aid})
+        else:
+            if index is None:raise ValueError('此 Agent 不存在，请刷新 Agent 管理。')
+            agents[index]={**agents[index],**body,'id':aid}
+        value=preferences.save({'agents':agents})
+    MODELS.request_refresh(value,[aid])
+    USAGE.request_refresh(value,[aid],force=True)
+    return JSONResponse({'preferences':value,'connections':await roster.connections(value),'model_catalog':MODELS.snapshot(value),'account_usage':USAGE.snapshot(value)})
+
+
+async def team_membership(request):
+    aid=request.path_params['mid'];body=await request.json()
+    if not isinstance(body,dict) or type(body.get('enabled')) is not bool:raise ValueError('请选择是否加入当前团队。')
+    with preferences.LOCK:
+        selected=preferences.load();source=roster.agent(selected,aid);refs=selected['team']
+        ref=next((r for r in refs if r['agent_id']==aid),None)
+        if ref is None:
+            ref=dict(agent_id=aid,model=source['model'],effort=source['effort']);refs.append(ref)
+        ref['enabled']=body['enabled']
+        value=preferences.save({'team':refs})
+    return JSONResponse({'preferences':value,'connections':await roster.connections(value)})
+
+
+async def debug_agent(request):
+    agent=roster.agent(preferences.load(),request.path_params['mid'])
+    if request.method=='GET':return JSONResponse({'jobs':DEBUG.history(agent['id'])})
+    body=await request.json()
+    if not isinstance(body,dict):raise ValueError('调试指令格式无效。')
+    return JSONResponse(DEBUG.start(agent,body))
+
+
+async def debug_cancel(request):
+    return JSONResponse(await DEBUG.cancel(request.path_params['jid']))
+
+
+async def debug_events(request):
+    job=DEBUG.get(request.path_params['jid'])
+    async def generate():
+        version=-1
+        while not await request.is_disconnected():
+            if job.version!=version:
+                version=job.version
+                yield 'data: '+json.dumps(job.snapshot(),ensure_ascii=False)+'\n\n'
+                if job.data['status']!='running':break
+            else:yield ': heartbeat\n\n'
+            await asyncio.sleep(0.2)
+    return StreamingResponse(generate(),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+
+async def remove_member(request):
+    mid=request.path_params['mid']
+    with preferences.LOCK:
+        selected=preferences.load();roster.member(selected,mid)
+        for ref in selected['team']:
+            if ref['agent_id']==mid:ref['enabled']=False
+        value=preferences.save({'team':selected['team']})
+    return JSONResponse({'preferences':value,'connections':await roster.connections(value)})
 
 
 async def member_key(request):
     body=await request.json();mid=request.path_params['mid']
-    roster.member(preferences.load(),mid)
+    m=roster.agent(preferences.load(),mid)
+    if m['backend'] in ['chatgpt','claude']:raise ValueError('此成员使用本机登录，不需要 API 密钥。')
     preferences.save_member_key(mid,body.get('key',''))
-    return JSONResponse({'connections':await roster.connections(preferences.load())})
+    selected=preferences.load();MODELS.request_refresh(selected,[mid]);USAGE.request_refresh(selected,[mid],force=True)
+    return JSONResponse({'connections':await roster.connections(selected),'model_catalog':MODELS.snapshot(selected),'account_usage':USAGE.snapshot(selected)})
 
 
 async def member_models(request):
-    from openai import AsyncOpenAI
-    m=roster.member(preferences.load(),request.path_params['mid'])
-    if m['backend'] in ['chatgpt','claude']:
-        value=await catalogs(refresh=True);return JSONResponse(value[m['backend']])
-    key=preferences.get_member_key(m) or ('local-no-auth' if m.get('no_auth') else '')
-    if not key:raise ValueError('请先保存此成员的 API 密钥。')
-    try:
-        async with AsyncOpenAI(api_key=key,base_url=m['base_url'],timeout=20,max_retries=0) as client:
-            data=await client.models.list()
-            return JSONResponse([{'id':x.id,'label':x.id} for x in data.data][:300])
-    except Exception:raise ValueError('模型目录读取失败，请检查连接；也可以手动填写模型 ID。') from None
+    selected=preferences.load();mid=request.path_params['mid'];roster.agent(selected,mid)
+    await asyncio.gather(*MODELS.request_refresh(selected,[mid]))
+    return JSONResponse(MODELS.snapshot(selected)['agents'][mid]['models'])
 
 
 async def login(request):
-    provider=request.path_params['provider']
-    if provider not in ['chatgpt','claude']: raise ValueError('请选择有效提供方。')
-    if provider in LOGIN and not LOGIN[provider].done():
-        return JSONResponse({'status':'waiting','message':'登录窗口已经打开，请在浏览器中完成。'})
-    async def perform():
-        import shutil
-        args=[shutil.which('codex'),'login'] if provider=='chatgpt' else [shutil.which('claude'),'auth','login','--claudeai']
-        try: await capture(args,timeout=300)
-        except Exception: pass
-    LOGIN[provider]=asyncio.create_task(perform())
-    return JSONResponse({'status':'waiting','message':'请在打开的登录页面中完成授权，然后点击“检查连接”。'})
+    return JSONResponse(await LOGIN.start(request.path_params['provider']))
 
 
 async def folder(request):
@@ -115,14 +234,16 @@ async def create_room(request):
     body=await request.json()
     path=project_path(body.get('project',''))
     value=STORE.create(str(body.get('title','新的协作')),str(path))
-    STORE.set_policy(value['id'],preferences.load()['cooperation_policy'])
+    selected=preferences.load();ROOMS.seed(value['id'],selected)
+    STORE.set_policy(value['id'],selected['cooperation_policy'])
     return JSONResponse(value)
 
 
 async def room(request):
     rid=request.path_params['rid']
     return JSONResponse({'room':STORE.room(rid),'messages':STORE.messages(rid),
-        'policy':STORE.policy(rid,preferences.load()['cooperation_policy'])})
+        'policy':STORE.policy(rid,preferences.load()['cooperation_policy']),'room_settings':ROOMS.load(rid),
+        'context':STORE.deliveries(rid)})
 
 
 async def policy(request):
@@ -139,7 +260,7 @@ async def send(request):
     mode=body.get('mode','discuss');target=body.get('target','all')
     if mode not in ['discuss','workflow']:
         raise ValueError('发送模式无效。')
-    selected=preferences.save(body.get('preferences',{}))
+    selected=ROOMS.load(rid)
     if target not in ['all','supervisor',*[m['id'] for m in selected['members']]]:raise ValueError('请选择当前团队中的成员。')
     if mode=='discuss' and target=='supervisor':
         STORE.room(rid)
@@ -213,7 +334,7 @@ async def recovery(request):
     if rid in WORK.running: raise ValueError('请等待或停止当前执行后检查恢复记录。')
     root=project_path(room['project']);body=await request.json()
     selected=preferences.load()
-    source=next((m for m in selected['members'] if m['backend'] in ['deepseek','openai-compatible'] and (preferences.get_member_key(m) or m.get('no_auth'))),None)
+    source=next((m for m in selected['agents'] if m['backend'] in ['deepseek','openai-compatible'] and (preferences.get_member_key(m) or m.get('no_auth'))),None)
     if source is None:
         raise ValueError('当前没有配置可用的 API 执行连接。CLI 文件修改请从“变更与报告”核对。')
     async with deepseek_session(root,source['model'],member=source) as session:
@@ -238,17 +359,34 @@ async def recovery(request):
 async def lifespan(app):
     STATE.mkdir(parents=True,exist_ok=True)
     (STATE/'service.json').write_text(json.dumps({'pid':os.getpid(),'url':ORIGIN,'port':PORT}),encoding='utf-8')
+    ROOMS.migrate(preferences.load())
+    MODELS.request_refresh(preferences.load())
+    USAGE.request_refresh(preferences.load())
     yield
     for rid in list(WORK.running): await WORK.stop(rid)
-    for task in LOGIN.values(): task.cancel()
+    await DEBUG.close()
+    await MODELS.close()
+    await USAGE.close()
+    await LOGIN.close()
 
 
 routes=[Route('/',lambda request:FileResponse(WEB/'index.html')),
-    Route('/api/health',health),Route('/api/bootstrap',bootstrap),Route('/api/models',models,methods=['POST']),
+    Route('/api/health',health),Route('/api/bootstrap',bootstrap),Route('/api/models',models,methods=['GET','POST']),
+    Route('/api/usage',usage,methods=['GET','POST']),Route('/api/agents/{mid}/usage',usage,methods=['POST']),
     Route('/api/settings',settings,methods=['POST']),Route('/api/connections',connections),
+    Route('/api/connection-state',connection_state),
+    Route('/api/agents/{mid}',save_agent,methods=['POST']),
+    Route('/api/agents/{mid}/key',member_key,methods=['POST']),Route('/api/agents/{mid}/models',member_models,methods=['POST']),
+    Route('/api/agents/{mid}/debug',debug_agent,methods=['GET','POST']),
+    Route('/api/debug/{jid}/events',debug_events),Route('/api/debug/{jid}/cancel',debug_cancel,methods=['POST']),
+    Route('/api/team/{mid}',team_membership,methods=['POST']),
+    Route('/api/members/{mid}',save_member,methods=['POST']),Route('/api/members/{mid}/remove',remove_member,methods=['POST']),
     Route('/api/members/{mid}/key',member_key,methods=['POST']),Route('/api/members/{mid}/models',member_models,methods=['POST']),
     Route('/api/login/{provider}',login,methods=['POST']),Route('/api/folder',folder,methods=['POST']),
     Route('/api/rooms',create_room,methods=['POST']),Route('/api/rooms/{rid}',room),
+    Route('/api/rooms/{rid}/configuration',room_configuration,methods=['GET','POST']),
+    Route('/api/rooms/{rid}/members/{mid}/membership',room_member,methods=['POST']),
+    Route('/api/rooms/{rid}/members/{mid}',room_member,methods=['POST']),
     Route('/api/rooms/{rid}/policy',policy,methods=['POST']),
     Route('/api/rooms/{rid}/send',send,methods=['POST']),Route('/api/rooms/{rid}/stop',stop,methods=['POST']),
     Route('/api/rooms/{rid}/resume',resume,methods=['POST']),Route('/api/rooms/{rid}/events',events),
@@ -277,6 +415,8 @@ async def protect(request,call_next):
     except Exception:
         return JSONResponse({'error':'本机服务暂时无法完成操作，请检查连接或重新启动。'},status_code=500)
     response.headers['X-Content-Type-Options']='nosniff'
+    if request.url.path=='/' or request.url.path.startswith('/assets/'):
+        response.headers['Cache-Control']='no-cache'
     response.headers['Referrer-Policy']='no-referrer'
     response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     return response

@@ -12,9 +12,11 @@ The coding executor is **PsChina/deepseek-as-subagent** (MIT), pinned to commit 
 | annotated-types | 0.8.0 | MIT | [texts](third_party/licenses/annotated-types/) |
 | anyio | 4.14.2 | MIT | [texts](third_party/licenses/anyio/) |
 | attrs | 26.1.0 | MIT | [texts](third_party/licenses/attrs/) |
+| bottle | 0.13.4 | MIT | [texts](third_party/licenses/bottle/) |
 | certifi | 2026.7.22 | MPL-2.0 | [texts](third_party/licenses/certifi/) |
 | cffi | 2.1.1 | MIT-0 | [texts](third_party/licenses/cffi/) |
 | click | 8.5.0 | BSD-3-Clause | [texts](third_party/licenses/click/) |
+| clr_loader | 0.3.1 | MIT | [texts](third_party/licenses/clr_loader/) |
 | colorama | 0.4.6 | BSD License | [texts](third_party/licenses/colorama/) |
 | cryptography | 50.0.1 | Apache-2.0 OR BSD-3-Clause | [texts](third_party/licenses/cryptography/) |
 | deepseek-as-subagent | 0.1.0 | MIT | [texts](third_party/licenses/deepseek-as-subagent/) |
@@ -36,6 +38,7 @@ The coding executor is **PsChina/deepseek-as-subagent** (MIT), pinned to commit 
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | [texts](third_party/licenses/packaging/) |
 | pathspec | 1.1.1 | Mozilla Public License 2.0 (MPL 2.0) | [texts](third_party/licenses/pathspec/) |
 | pluggy | 1.6.0 | MIT | [texts](third_party/licenses/pluggy/) |
+| proxy_tools | 0.1.0 | MIT | See upstream distribution |
 | pycparser | 3.0 | BSD-3-Clause | [texts](third_party/licenses/pycparser/) |
 | pydantic | 2.13.4 | MIT | [texts](third_party/licenses/pydantic/) |
 | pydantic-settings | 2.15.0 | MIT | [texts](third_party/licenses/pydantic-settings/) |
@@ -44,6 +47,8 @@ The coding executor is **PsChina/deepseek-as-subagent** (MIT), pinned to commit 
 | PyJWT | 2.15.1 | MIT | [texts](third_party/licenses/PyJWT/) |
 | python-dotenv | 1.2.3 | BSD-3-Clause | [texts](third_party/licenses/python-dotenv/) |
 | python-multipart | 0.0.32 | Apache-2.0 | [texts](third_party/licenses/python-multipart/) |
+| pythonnet | 3.2.1 | MIT | [texts](third_party/licenses/pythonnet/) |
+| pywebview | 6.2.1 | BSD-3-Clause | [texts](third_party/licenses/pywebview/) |
 | pywin32 | 312 | PSF | [texts](third_party/licenses/pywin32/adodbapi/) |
 | PyYAML | 6.0.3 | MIT | [texts](third_party/licenses/PyYAML/) |
 | referencing | 0.37.0 | MIT | [texts](third_party/licenses/referencing/) |
