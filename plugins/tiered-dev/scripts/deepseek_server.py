@@ -35,11 +35,14 @@ def _selected_config(*args, **kwargs):
     return replace(cfg,**changes) if changes else cfg
 upstream._load_config = _selected_config
 
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'gui'))
 if os.environ.get('TIERED_CONTEXT_FILE'):
-    from pathlib import Path
-    sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'gui'))
     from execution_context import install
     install()
+if os.environ.get('TIERED_GIT_CONFIG'):
+    from execution_context import install_git_bridge
+    install_git_bridge()
 
 
 class ProgressHandler(logging.Handler):

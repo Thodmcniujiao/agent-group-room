@@ -43,10 +43,16 @@ def build_snapshot(root, paths=None, base_ref=''):
         chunks.append('--- ' + label + ' ---\n' + value)
         evidence.append(label)
         total += len(value)
+    try:
+        # Inside the GUI host: trust only this selected project (see gui/git_access.py).
+        import git_access, preferences
+        git_env = git_access.environment(git_access.ensure_config(root, preferences.STATE, include_user=True))
+    except Exception:
+        git_env = None
     def git(*args):
         nonlocal truncated
         with tempfile.TemporaryFile() as stream:
-            result = subprocess.run(['git', '--no-pager', *args], cwd=root,
+            result = subprocess.run(['git', '--no-pager', *args], cwd=root, env=git_env,
                 stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.DEVNULL, timeout=15,
                 creationflags=0x08000000 if os.name=='nt' else 0)
             if result.returncode:

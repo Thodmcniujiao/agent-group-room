@@ -16,16 +16,23 @@ class ProjectTools:
 
     @classmethod
     def specs(cls):
+        from git_access import TOOL_SCHEMA
         return [{'type':'function','name':'project_'+name,'description':TOOL_SCHEMAS[name]['description']+
             ' Host enforces the current task allowed_paths; never use native apply_patch or shell to write.',
-            'inputSchema':copy.deepcopy(TOOL_SCHEMAS[name]['parameters'])} for name in cls.names]
+            'inputSchema':copy.deepcopy(TOOL_SCHEMAS[name]['parameters'])} for name in cls.names]+\
+            [{'type':'function','name':'project_Git','description':TOOL_SCHEMA['description'],
+              'inputSchema':copy.deepcopy(TOOL_SCHEMA['parameters'])}]
 
     def execute(self,name,args):
         tool=name.removeprefix('project_')
-        if tool not in self.names:raise ValueError('文件工具不在允许列表内。')
+        if tool!='Git' and tool not in self.names:raise ValueError('文件工具不在允许列表内。')
         if not isinstance(args,dict):raise ValueError('文件工具参数必须是对象。')
         self.calls+=1
         if self.calls>128:raise ValueError('本轮文件工具调用达到上限。')
+        if tool=='Git':
+            from engines import preferences
+            from git_access import ensure_config,run_readonly
+            return run_readonly(self.root,args.get('args'),ensure_config(self.root,preferences.STATE))
         args=copy.deepcopy(args)
         if 'path' in args and isinstance(args['path'],str):
             target=(self.root/args['path']).resolve()

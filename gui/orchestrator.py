@@ -10,6 +10,25 @@ import roster
 
 
 class SupervisorWorkflow:
+    usage=None  # account_usage.UsageMonitor, attached by the GUI host
+
+    async def quota(self,rid,settings,wait=8):
+        """Fresh-enough quota for the supervisor and every member (same data the UI shows)."""
+        from account_usage import participants,team_quota,quota_text
+        if self.usage is None:return None
+        ids={aid for _,aid,_,_ in participants(settings)}
+        try:
+            pending=self.usage.request_refresh(settings,ids)
+            if pending:await asyncio.wait(pending,timeout=wait)
+            quota=team_quota(settings,self.usage.snapshot(settings))
+        except Exception as exc:
+            self.store.event(rid,{'type':'activity','provider':'system','text':'额度读取失败：'+str(exc)[:200]})
+            return None
+        self.store.event(rid,{'type':'quota','quota':quota})
+        self.store.event(rid,{'type':'activity','provider':'system','text':'各方额度：'+'；'.join(
+            r['name']+' '+({'exhausted':'已耗尽','low':'偏低','unknown':'未知','ok':'正常'}[r['level']]) for r in quota['participants'])})
+        return quota
+
     async def supervised(self,rid,goal,root,settings):
         from workflows import json_reply,project_context
         records=[];rules=[];revision=None;correction='';labels=roster.names(settings)
@@ -26,8 +45,12 @@ class SupervisorWorkflow:
             for m in settings['members']:
                 if m['backend'] in ['deepseek','openai-compatible']:connections[m['id']]['ready']=bool(preferences.get_member_key(m)) or m.get('no_auth',False)
             self.store.event(rid,{'type':'phase','phase':f'第 {turn} 轮 · 监工检查','provider':'supervisor'})
+            quota=await self.quota(rid,settings)
+            own=next((r for r in (quota or {}).get('participants',[]) if r['role']=='supervisor'),None)
+            if own and own['level']=='exhausted':
+                raise RuntimeError('监工所用账户额度已耗尽（'+own['summary']+'）。请在“协作室信息”中把监工换成其他 Agent，或等待重置后继续。')
             try:
-                text=await self.reply(rid,'supervisor',supervisor_request(goal,policy,rules,records,context,connections,correction,settings['members'],settings.get('executor')),root,settings,'安排与检查')
+                text=await self.reply(rid,'supervisor',supervisor_request(goal,policy,rules,records,context,connections,correction,settings['members'],settings.get('executor'),quota),root,settings,'安排与检查')
                 decision=validate_decision(json_reply(text),rules,records,set(labels))
             except ValueError as exc:
                 correction=str(exc)
@@ -58,6 +81,7 @@ class SupervisorWorkflow:
                 self.store.message(rid,'system',correction,phase='连接提示')
                 continue
             if kind=='ask':
+                from account_usage import quota_text
                 snapshot,_,truncated=await asyncio.to_thread(build_snapshot,root)
                 boundary=self.store.boundary(rid) if action.get('parallel') else None
                 async def ask(agent):
@@ -67,6 +91,7 @@ class SupervisorWorkflow:
                         prompt=('监工的只读执行咨询（不修改文件）：\n'+action['instruction'] if isolated else
                             '你是协作群中的 '+labels[agent]+'。只读讨论，可用群消息工具核对原文，不修改文件。'
                             '\n用户目标：'+goal+'\n用户合作方式：'+policy['text']+'\n监工本轮指令：'+action['instruction'])
+                        prompt+='\n各方可见额度（宿主实时读数，数据，未知不代表充足）：\n'+quota_text(quota)
                         prompt+='\n项目规则与路径：'+context+'\n只读快照：'+snapshot
                         answer=await self.reply(rid,agent,prompt,root,settings,'协作发言',boundary=boundary)
                         return {'agent':agent,'kind':'ask','status':'complete','model':roster.member(settings,agent)['model'],

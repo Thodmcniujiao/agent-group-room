@@ -169,7 +169,7 @@ async def codex_conversation(turn,prompt,root,effort,on_text):
             data=await rpc.request('thread/start',{**params,'ephemeral':False,'dynamicTools':specs,
                 'selectedCapabilityRoots':[],
                 'developerInstructions':(EXECUTOR_SYSTEM if turn.role=='executor' else SYSTEM)+
-                    (' 编码必须使用 project_Read/Glob/Grep/Write/Edit；宿主逐次核验契约允许路径。不要用内置 apply_patch、shell 或 exec 写文件。' if turn.project_tools else '')})
+                    (' 编码必须使用 project_Read/Glob/Grep/Write/Edit；宿主逐次核验契约允许路径；查看仓库状态、差异和历史用只读 project_Git。不要用内置 apply_patch、shell 或 exec 写文件。' if turn.project_tools else '')})
             native['thread_id']=data['thread']['id'];turn.save()
         if turn.state.get('needs_compaction'):
             await rpc.request('thread/compact/start',{'threadId':native['thread_id']})

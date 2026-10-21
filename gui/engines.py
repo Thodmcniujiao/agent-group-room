@@ -282,10 +282,20 @@ async def deepseek_reply(store,rid,prompt,model,phase='讨论',identity='deepsee
         raise RuntimeError(display_name+' 连接失败，请检查 API 地址、密钥、额度及模型名称。') from None
 
 
+def tool_environment(project):
+    """Host-owned Git trust and scratch folders for executor tools (see git_access)."""
+    from git_access import ensure_config
+    config=ensure_config(project,preferences.STATE)
+    scratch=preferences.STATE/'tool-scratch'/config.name.split('-')[0]
+    scratch.mkdir(parents=True,exist_ok=True)
+    return {'TIERED_GIT_CONFIG':str(config),'TIERED_TOOL_SCRATCH':str(scratch)}
+
+
 @asynccontextmanager
 async def deepseek_session(project,model,store=None,rid=None,member=None,context_turn=None):
     env={**os.environ,'DEEPSEEK_WORKSPACE':str(project),'TIERED_DEEPSEEK_MODEL':preferences.model_id(model),
          'TIERED_PROGRESS':'1','DEEPSEEK_MODE':'auto','PYTHONIOENCODING':'utf-8'}
+    env.update(tool_environment(project))
     key=preferences.get_key()
     if key: env['DEEPSEEK_API_KEY']=key
     if member:

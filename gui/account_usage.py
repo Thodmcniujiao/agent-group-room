@@ -141,3 +141,73 @@ class UsageMonitor:
         for task in self.tasks.values():
             if not task.done():task.cancel()
         await asyncio.gather(*self.tasks.values(),return_exceptions=True)
+
+
+def participants(settings):
+    """(identity, saved agent id, display name, role) for the supervisor and every room member."""
+    result=[('supervisor',settings['supervisor']['provider'],'监工','supervisor')]
+    for m in settings['members']:
+        result.append((m['id'],m.get('agent_id',m['id']),m['name'],'executor' if m['id']==settings.get('executor') else 'member'))
+    return result
+
+
+def _summary(entry):
+    status=entry.get('status')
+    if status!='ready':
+        return {'loading':'读取中，尚无读数','error':'读取失败','unconfigured':'未配置密钥',
+            'external':'官方不提供读数','unavailable':'账户未返回读数'}.get(status,'未知')+'：'+str(entry.get('detail',''))[:160]
+    parts=[]
+    for w in entry.get('windows',[]):
+        text=f"{w['label']} 剩余 {w['remaining_percent']:g}%"
+        if w.get('resets_at'):text+=f"（{w['resets_at'][:16].replace('T',' ')} UTC 重置）"
+        parts.append(text)
+    for b in entry.get('balances',[]):parts.append(f"余额 {b['currency']} {b['total_balance']}")
+    return '；'.join(parts) or '无读数'
+
+
+def _level(entry):
+    if entry.get('status')!='ready':return 'unknown'
+    remaining=[w['remaining_percent'] for w in entry.get('windows',[])]
+    try:remaining+=[100 if Decimal(b['total_balance'])>0 else 0 for b in entry.get('balances',[])]
+    except InvalidOperation:pass
+    if not remaining:return 'unknown'
+    low=min(remaining)
+    return 'exhausted' if low<=0 else 'low' if low<10 else 'ok'
+
+
+def team_quota(settings,snapshot):
+    """Model-readable quota for the supervisor and every member, from the same monitor the UI shows.
+
+    Unknown is reported as unknown (never assumed sufficient). Members on the same
+    account/credential share one pool and are cross-referenced via shared_with.
+    """
+    agents={a['id']:a for a in settings.get('agents',settings['members'])}
+    entries=snapshot.get('agents',{})
+    rows=[];pools={}
+    for identity,aid,name,role in participants(settings):
+        entry=entries.get(aid)
+        try:fingerprint=connection_context(agents[aid])[0] if aid in agents else aid
+        except (OSError,KeyError,TypeError,ValueError):fingerprint=aid
+        if entry is None:
+            entry={'status':'none','detail':'此连接没有可读的额度接口。','windows':[],'balances':[]}
+        row={'id':identity,'name':name,'role':role,'agent':aid,'status':entry.get('status'),
+            'level':_level(entry),'summary':_summary(entry),'updated':entry.get('updated'),
+            'windows':[{k:w.get(k) for k in ['label','remaining_percent','resets_at']} for w in entry.get('windows',[])],
+            'balances':[{k:b.get(k) for k in ['currency','total_balance']} for b in entry.get('balances',[])]}
+        pools.setdefault(fingerprint,[]).append(row);rows.append(row)
+    for group in pools.values():
+        for row in group:row['shared_with']=[r['id'] for r in group if r is not row]
+    return {'checked_at':datetime.now(timezone.utc).isoformat(),'participants':rows,
+        'known':any(r['status']=='ready' for r in rows)}
+
+
+def quota_text(quota):
+    """One line per participant, for prompts of members who are not the supervisor."""
+    if not quota or not quota.get('participants'):return '宿主没有可用的额度读数。'
+    marks={'exhausted':'【已耗尽】','low':'【偏低】','unknown':'【未知】','ok':''}
+    lines=[]
+    for r in quota['participants']:
+        role={'supervisor':'监工','executor':'执行者','member':'成员'}[r['role']]
+        shared='（与 '+'、'.join(r['shared_with'])+' 共用额度）' if r.get('shared_with') else ''
+        lines.append(f"- {r['name']}（{r['id']}，{role}）{marks[r['level']]}{r['summary']}{shared}")
+    return '\n'.join(lines)

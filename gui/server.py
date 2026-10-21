@@ -38,6 +38,7 @@ WEB=Path(__file__).parent/'web'
 MODELS=shared_catalog()
 DEBUG=AgentDebugger()
 USAGE=UsageMonitor()
+WORK.usage=USAGE  # supervisor and members see the same account meters as the UI
 
 
 def login_complete():

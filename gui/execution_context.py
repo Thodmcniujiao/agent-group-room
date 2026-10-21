@@ -10,7 +10,7 @@ import sys
 
 
 def install():
-    from deepseek_mcp import agent_loop as loop,provider_process as process,child_runtime
+    from deepseek_mcp import agent_loop as loop,provider_process as process
     path=Path(os.environ['TIERED_CONTEXT_FILE'])
     soft=int(os.environ.get('TIERED_CONTEXT_SOFT','128000'))
     reserve=int(os.environ.get('TIERED_CONTEXT_OUTPUT_RESERVE','16384'))
@@ -68,9 +68,50 @@ def install():
     original_argv=process.isolated_child_argv
     def argv(module,*arguments):
         if module!='deepseek_mcp.provider_child':return original_argv(module,*arguments)
-        roots=[str(p) for p in child_runtime.child_import_roots()]+[str(Path(__file__).parent)]
-        script=str(Path(__file__).with_name('native_provider_child.py'))
-        bootstrap=('import runpy,sys;count=int(sys.argv[1]);sys.path[:0]=sys.argv[2:2+count];'
-            'script=sys.argv[2+count];sys.argv=[script,*sys.argv[3+count:]];runpy.run_path(script,run_name="__main__")')
-        return [sys.executable,'-I','-S','-c',bootstrap,str(len(roots)),*roots,script,*arguments]
+        return wrapped_child_argv('native_provider_child.py',arguments)
     process.isolated_child_argv=argv
+
+
+def wrapped_child_argv(name,arguments):
+    from deepseek_mcp import child_runtime
+    roots=[str(p) for p in child_runtime.child_import_roots()]+[str(Path(__file__).parent)]
+    script=str(Path(__file__).with_name(name))
+    bootstrap=('import runpy,sys;count=int(sys.argv[1]);sys.path[:0]=sys.argv[2:2+count];'
+        'script=sys.argv[2+count];sys.argv=[script,*sys.argv[3+count:]];runpy.run_path(script,run_name="__main__")')
+    return [sys.executable,'-I','-S','-c',bootstrap,str(len(roots)),*roots,script,*arguments]
+
+
+def install_git_bridge():
+    """Give every executor (coding or read-only) a working path to Git.
+
+    1. Bash: the isolated tool child gets the host trust file and scratch folders.
+    2. A dedicated read-only `Git` tool executed by the host, so the executor
+       can inspect status/diff/log even when Bash is not used.
+    """
+    config=os.environ.get('TIERED_GIT_CONFIG')
+    if not config:return
+    from deepseek_mcp import agent_loop as loop,tool_process
+    import logging
+    from git_access import TOOL_SCHEMA,run_readonly
+    original_environment=tool_process._environment
+    def environment():
+        values=original_environment()
+        for name in ['TIERED_GIT_CONFIG','TIERED_TOOL_SCRATCH']:
+            if os.environ.get(name):values[name]=os.environ[name]
+        return values
+    tool_process._environment=environment
+    original_argv=tool_process.isolated_child_argv
+    def argv(module,*arguments):
+        if module!='deepseek_mcp.tool_child':return original_argv(module,*arguments)
+        return wrapped_child_argv('tool_child_env.py',arguments)
+    tool_process.isolated_child_argv=argv
+    schemas=loop.build_tool_schemas;execute=loop._execute_one_tool
+    loop.build_tool_schemas=lambda allowed:schemas(allowed)+[{'type':'function','function':TOOL_SCHEMA}]
+    log=logging.getLogger('deepseek_mcp.agent_loop')
+    def git_tool(config_value,call,turn,**kwargs):
+        if call.function.name!=TOOL_SCHEMA['name']:return execute(config_value,call,turn,**kwargs)
+        log.info('Turn %d tool_call: %s arg_count=%d',turn,'Git',1)
+        try:args=json.loads(call.function.arguments).get('args')
+        except (ValueError,AttributeError):return 'ERROR: Git 工具参数必须是 {"args": [...]}。'
+        return run_readonly(config_value.workspace,args,os.environ.get('TIERED_GIT_CONFIG') or config)
+    loop._execute_one_tool=git_tool
