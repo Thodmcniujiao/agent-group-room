@@ -206,8 +206,12 @@ async def cli_reply(store,rid,provider,prompt,project,model,effort,phase,identit
                     args.extend(['--restricted','--permission-prompts','none'])
                 if effort is not None:args.extend(['--effort',effort])
             if not args[0]: raise RuntimeError(f'{NAMES[provider]} CLI 未安装。')
+            trust=member_git_environment(project)
+            if provider=='chatgpt' and trust:
+                table='{'+', '.join(name+' = '+json.dumps(value) for name,value in trust.items())+'}'
+                args[-1:-1]=['-c','shell_environment_policy.set='+table]
             with (Path(folder)/'stderr.txt').open('wb') as err:
-                proc=await asyncio.create_subprocess_exec(*args,cwd=project,env=environment(),stdin=asyncio.subprocess.PIPE,
+                proc=await asyncio.create_subprocess_exec(*args,cwd=project,env={**environment(),**trust},stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,stderr=err,creationflags=HIDDEN,limit=2_000_000)
                 async def consume():
                     nonlocal text,last_push,usage,failure
@@ -280,6 +284,13 @@ async def deepseek_reply(store,rid,prompt,model,phase='讨论',identity='deepsee
         if getattr(exc,'status_code',None)==401: raise RuntimeError(display_name+' 密钥无效，请编辑成员连接。') from None
         if getattr(exc,'status_code',None)==402: raise RuntimeError(display_name+' 余额不足。') from None
         raise RuntimeError(display_name+' 连接失败，请检查 API 地址、密钥、额度及模型名称。') from None
+
+
+def member_git_environment(project):
+    """For model CLIs (Codex/Claude) that may run git themselves in the project, incl. Codex's sandbox."""
+    from git_access import trust_variables
+    try:return trust_variables(project,preferences.STATE)
+    except (OSError,ValueError):return {}
 
 
 def tool_environment(project):

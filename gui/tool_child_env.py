@@ -16,7 +16,10 @@ def host_environment(workspace):
     env=_original(workspace)
     config=os.environ.get('TIERED_GIT_CONFIG')
     if config:
+        from pathlib import Path
+        trusted="'"+Path(workspace).resolve().as_posix().replace("'","'\\''")+"'"
         env['GIT_CONFIG_GLOBAL']=config
+        env['GIT_CONFIG_PARAMETERS']="'safe.directory'="+trusted
         env['GIT_TERMINAL_PROMPT']='0'
     scratch=os.environ.get('TIERED_TOOL_SCRATCH')
     if scratch:

@@ -76,11 +76,32 @@ def ensure_config(root,state_dir,include_user=False):
     return path
 
 
-def environment(config_path,base=None):
+def _sq(value):
+    return "'"+str(value).replace("'","'\\''")+"'"
+
+
+def parameters(root):
+    """`git -c safe.directory=<root>` as an environment variable (command scope, Git >= 2.38).
+
+    Unlike GIT_CONFIG_GLOBAL it needs no readable file, so it also works inside
+    sandboxes (Codex) whose restricted token cannot read the host state folder.
+    Not GIT_CONFIG_COUNT/KEY_n: sandboxes drop variables whose names contain KEY.
+    """
+    return _sq('safe.directory')+'='+_sq(trusted_path(root))
+
+
+def trust_variables(root,state_dir,include_user=True):
+    """Variables to add to any process that may run git in `root` on our behalf."""
+    return {'GIT_CONFIG_GLOBAL':str(ensure_config(root,state_dir,include_user=include_user)),
+            'GIT_CONFIG_PARAMETERS':parameters(root)}
+
+
+def environment(config_path,base=None,root=None):
     """Environment for a Git child: our trust file, no prompts, no inherited repo redirection."""
     env={k:v for k,v in (os.environ if base is None else base).items()
          if not k.upper().startswith('GIT_')}
     env.update(GIT_CONFIG_GLOBAL=str(config_path),GIT_TERMINAL_PROMPT='0')
+    if root is not None:env['GIT_CONFIG_PARAMETERS']=parameters(root)
     return env
 
 
@@ -102,7 +123,7 @@ async def run_host(root,*args,state_dir,timeout=20):
     config=ensure_config(root,state_dir,include_user=True)
     try:
         proc=await asyncio.create_subprocess_exec('git','--no-pager','-c','core.quotepath=false',*args,cwd=str(root),
-            env=environment(config),stdin=asyncio.subprocess.DEVNULL,stdout=asyncio.subprocess.PIPE,
+            env=environment(config,root=root),stdin=asyncio.subprocess.DEVNULL,stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,creationflags=HIDDEN)
     except FileNotFoundError:
         raise GitError('未找到 git 程序；请安装 Git for Windows 并确保在 PATH 中。') from None
@@ -143,7 +164,7 @@ def run_readonly(root,args,config_path,timeout=30):
     except ValueError as exc:return 'ERROR: '+str(exc)
     extra=['--no-ext-diff','--no-textconv'] if command in ['diff','show','log'] else ['--no-textconv'] if command=='blame' else []
     argv=['git','--no-pager',*SAFE_OPTIONS,command,*extra,*rest]
-    env=environment(config_path);env['GIT_OPTIONAL_LOCKS']='0'
+    env=environment(config_path,root=root);env['GIT_OPTIONAL_LOCKS']='0'
     try:
         result=subprocess.run(argv,cwd=str(root),env=env,stdin=subprocess.DEVNULL,capture_output=True,
             timeout=timeout,creationflags=HIDDEN)

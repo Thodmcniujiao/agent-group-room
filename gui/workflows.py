@@ -119,7 +119,7 @@ async def verify_commands(store,rid,root,commands):
         env.update(HOME=str(root),USERPROFILE=str(root))
         # Git trusts this project via the host file; scratch/AppData stay outside the repository.
         tools=tool_environment(root);scratch=Path(tools['TIERED_TOOL_SCRATCH'])
-        env.update(GIT_CONFIG_GLOBAL=tools['TIERED_GIT_CONFIG'],GIT_TERMINAL_PROMPT='0',
+        env.update(GIT_CONFIG_GLOBAL=tools['TIERED_GIT_CONFIG'],GIT_TERMINAL_PROMPT='0',GIT_CONFIG_PARAMETERS=git_access.parameters(root),
             APPDATA=str(scratch/'AppData'/'Roaming'),LOCALAPPDATA=str(scratch/'AppData'/'Local'))
         for name in ['APPDATA','LOCALAPPDATA']: Path(env[name]).mkdir(parents=True,exist_ok=True)
         proc=await asyncio.create_subprocess_exec(os.environ.get('COMSPEC','cmd.exe'),'/d','/s','/c',command,

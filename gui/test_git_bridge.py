@@ -75,6 +75,10 @@ class GitAccessTests(unittest.TestCase):
         self.assertEqual(Path(top).resolve(),root.resolve())
         config=git_access.ensure_config(root,self.state)
         self.assertIn('exit_code: 0',git_access.run_readonly(root,['status','--short'],config))
+        # Variable-only trust (what Codex's sandbox receives): no readable file needed.
+        only=subprocess.run(['git','status','--short'],cwd=root,capture_output=True,text=True,
+            env={**os.environ,'GIT_CONFIG_PARAMETERS':git_access.parameters(root)})
+        self.assertEqual(only.returncode,0,only.stderr)
         self.assertNotEqual(plain_status(root).returncode,0,'user global config must stay untouched')
 
 
@@ -117,13 +121,14 @@ class ExecutorBridgeTests(unittest.TestCase):
         self.assertTrue(self.call(self.root,'Git',{'args':['commit','-m','x']}).startswith('ERROR:'))
 
     def test_bash_git_uses_host_trust_and_keeps_scratch_outside_the_project(self):
-        show='echo TEMP=%TEMP% & echo APPDATA=%APPDATA% & echo GITCFG=%GIT_CONFIG_GLOBAL%' if os.name=='nt' else \
-            'echo TEMP=$TEMP; echo GITCFG=$GIT_CONFIG_GLOBAL'
+        show='echo TEMP=%TEMP% & echo APPDATA=%APPDATA% & echo GITCFG=%GIT_CONFIG_GLOBAL% & echo GITPARAM=%GIT_CONFIG_PARAMETERS%' if os.name=='nt' else \
+            'echo TEMP=$TEMP; echo GITCFG=$GIT_CONFIG_GLOBAL; echo GITPARAM="$GIT_CONFIG_PARAMETERS"'
         result=self.call(self.root,'Bash',{'command':'git rev-parse --show-toplevel','timeout':60})
         self.assertIn(self.root.resolve().as_posix().lower(),result.replace('\\','/').lower(),result)
         result=self.call(self.root,'Bash',{'command':show,'timeout':60})
         self.assertIn('GITCFG='+self.env['TIERED_GIT_CONFIG'],result)
         self.assertIn('TEMP='+str(self.scratch),result)
+        self.assertIn("GITPARAM='safe.directory'='"+self.root.resolve().as_posix(),result)
         self.assertEqual(sorted(p.name for p in self.root.iterdir()),['.git','a.txt'])
 
     @unittest.skipUnless(DUBIOUS,'set AGENT_ROOM_DUBIOUS_REPO to a dubious-ownership repository')
@@ -217,6 +222,21 @@ class SupervisorQuotaFlowTests(unittest.IsolatedAsyncioTestCase):
         snapshot={'agents':{'gpt':{'status':'ready','windows':[{'label':'5 小时','used_percent':100,'remaining_percent':0,'resets_at':None}],'balances':[]}}}
         work,store,rid,prompts,error=await self.run_supervised(snapshot)
         self.assertEqual(prompts,[]);self.assertIn('监工所用账户额度已耗尽',error)
+
+
+
+class MemberCliTrustTests(unittest.TestCase):
+    def test_codex_and_claude_sessions_receive_project_trust(self):
+        from unittest.mock import patch
+        import engines
+        with tempfile.TemporaryDirectory() as folder, patch.object(engines.preferences,'STATE',Path(folder)/'state'):
+            root=make_repo(folder);trust=engines.member_git_environment(root)
+            self.assertEqual(set(trust),{'GIT_CONFIG_GLOBAL','GIT_CONFIG_PARAMETERS'})
+            self.assertEqual(trust['GIT_CONFIG_PARAMETERS'],git_access.parameters(root))
+            env={**os.environ,**trust}
+            self.assertEqual(subprocess.run(['git','status'],cwd=root,env=env,capture_output=True).returncode,0)
+            source=(HERE/'provider_sessions.py').read_text(encoding='utf-8')
+            self.assertIn("config['shell_environment_policy']={'set':trust}",source)
 
 
 if __name__=='__main__':unittest.main()

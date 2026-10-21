@@ -138,12 +138,13 @@ class CodexRPC:
 
 
 async def codex_conversation(turn,prompt,root,effort,on_text):
-    from engines import find_cli,environment,HIDDEN,kill_tree
+    from engines import find_cli,environment,HIDDEN,kill_tree,member_git_environment
     binary=find_cli('codex')
     if not binary:raise RuntimeError('未安装 ChatGPT CLI。')
+    trust=member_git_environment(root)
     proc=await asyncio.create_subprocess_exec(binary,'app-server','--listen','stdio://',
         '-c','mcp_servers={}',stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL,env=environment(),cwd=root,creationflags=HIDDEN,limit=8_000_000)
+        stderr=asyncio.subprocess.DEVNULL,env={**environment(),**trust},cwd=root,creationflags=HIDDEN,limit=8_000_000)
     rpc=CodexRPC(proc,turn,on_text);reader=asyncio.create_task(rpc.consume())
     try:
         await rpc.request('initialize',{'clientInfo':{'name':'agent_group_room','version':'0.10.0'},'capabilities':{'experimentalApi':True}})
@@ -158,6 +159,8 @@ async def codex_conversation(turn,prompt,root,effort,on_text):
                     config['mcp_servers'][name]={'enabled':False}
             except (OSError,ValueError):pass
         if turn.coding:config['windows']={'sandbox':'unelevated'}
+        # Codex shells (incl. its Windows sandbox) trust exactly this project for git.
+        if trust:config['shell_environment_policy']={'set':trust}
         params={'model':turn.model,'cwd':str(root),'approvalPolicy':'never',
             'sandbox':'read-only','config':config}
         native=turn.state['native']
@@ -195,7 +198,7 @@ async def codex_conversation(turn,prompt,root,effort,on_text):
 
 
 async def claude_conversation(turn,prompt,root,effort,on_text):
-    from engines import find_cli,environment,HIDDEN,kill_tree
+    from engines import find_cli,environment,HIDDEN,kill_tree,member_git_environment
     binary=find_cli('claude')
     if not binary:raise RuntimeError('未安装 Claude CLI。')
     native=turn.state['native'];existing=native.get('session_id');sid=existing or str(uuid.uuid4())
@@ -215,7 +218,7 @@ async def claude_conversation(turn,prompt,root,effort,on_text):
         if effort is not None:args+=['--effort',effort]
         if turn.tools:args+=['--allowedTools',','.join('mcp__room__'+t['name'] for t in TOOL_SCHEMAS)]
         args+=['--resume' if existing else '--session-id',sid]
-        env=environment();env['CLAUDE_CODE_AUTO_COMPACT_WINDOW']=str(max(100000,turn.budget['soft']))
+        env={**environment(),**member_git_environment(root)};env['CLAUDE_CODE_AUTO_COMPACT_WINDOW']=str(max(100000,turn.budget['soft']))
         env['CLAUDE_AUTOCOMPACT_PCT_OVERRIDE']='80'
         proc=await asyncio.create_subprocess_exec(*args,cwd=root,env=env,stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL,creationflags=HIDDEN,limit=8_000_000)
