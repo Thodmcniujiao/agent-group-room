@@ -1,0 +1,11 @@
+*
+!.gitignore
+!README.md
+!run.cmd
+!git-version.txt
+!plain-git-new-folder.txt
+!git-bridge.log
+!full-suite.txt
+!unit-tests.log
+!unit-tests.json
+!done.txt

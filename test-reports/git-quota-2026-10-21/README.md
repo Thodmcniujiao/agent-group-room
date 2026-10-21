@@ -12,11 +12,13 @@
 - `test_gui.py` 中的 WorkflowTests / SupervisorValidationTests / RecoveryTests：全部通过（含真实 git 与验收命令的监工全流程）。
 - 其余失败均为该环境缺少 Windows 依赖（DPAPI、pywin32、真实 httpx 等），与本次改动无关，需在本机复核。
 
-## 待在本机 Windows 复核
+## 本机 Windows 结果（2026-10-21 17:46 UTC）
 
-双击或在“运行”中执行本目录的 `run.cmd`。它会写入：
+- Git：`git version 2.52.0.windows.1`（支持宿主信任文件）。
+- 完整回归（`unit-tests.log` / `unit-tests.json`）：117 项中 116 项通过。唯一失败的是
+  `test_real_dubious_ownership_repository_is_trusted_only_through_the_host`：它要求 `New folder`
+  先被普通 `git status` 拒绝，但这次普通 Git 已经正常（`plain-git-new-folder.txt` 只有 `?? .tiered/`），前提不成立。
+  该测试已改为前提不满足时跳过；在 Linux 环境用真实的所有权冲突仓库复测仍通过。
+- 执行者 Bash 内的 git、Git 工具在 `New folder` 上均通过（`git-bridge.log`）。
 
-- `git-version.txt`：Git 版本（需 ≥ 2.35.2）
-- `plain-git-new-folder.txt`：未经宿主时 `New folder` 的原始 Git 报错
-- `git-bridge.log`：新测试（含对 `New folder` 的只读真实验证）
-- `unit-tests.log` / `unit-tests.json` / `full-suite.txt`：完整回归
+重新运行：执行本目录的 `run.cmd`。

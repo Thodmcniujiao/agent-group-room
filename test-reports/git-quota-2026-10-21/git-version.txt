@@ -1,0 +1,2 @@
+git version 2.52.0.windows.1
+C:\Program Files\Git\cmd\git.exe
