@@ -1,6 +1,6 @@
 {
-  "timestamp_utc": "2026-10-21T17:56:26.454533+00:00",
-  "git_head": "e35f8e0bcc578680ce52c1db10828b0e2dea7969",
+  "timestamp_utc": "2026-10-21T22:39:56.748812+00:00",
+  "git_head": "5068b39dd563c6823f4e4dfa265d2105cceb3718",
   "working_tree": "contains local changes; hashes identify the tested sources",
   "tests_run": 118,
   "failures": 0,
@@ -527,7 +527,7 @@
     "plugins/tiered-dev/scripts/policy.py": "60d3d4f752ce75476d17d3a9cd56e85fbabc57312ccc8dbeabc1fb550afdce2f",
     "plugins/tiered-dev/scripts/preferences.py": "3cfb0ec308647b670824e5de0e22c3bdd3caba4fb6e751e2d7d56aa5c317b38d",
     "plugins/tiered-dev/scripts/review_server.py": "2ba1662aa769084afa64744ded3e43c091bf597da9203dcd0fa8a0cf64a98f83",
-    "scripts/check_codex_git.py": "20468915e0b22b214143563e60ef48de8f9027530c6f5751119b9848695f7de3",
+    "scripts/check_codex_git.py": "6bd245a80da6539a00234deca2d5d11b539c64e9cf41a335ffc998889fd7f776",
     "scripts/doctor.py": "5ad1427f52414f715d3fc86e3901ead7664d24855c8168711d118f79a20e8fb0",
     "scripts/inspect_effort_metadata.py": "6afa26776fd0e0794f2808449466c905eb2ce034b4d504ff52d829b9e47b3047",
     "scripts/run_context_checks.py": "43e465101f5c988e140a753aba4bf20c5a6658f47bbe9c2275f8fc8acf66eea8",

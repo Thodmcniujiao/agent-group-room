@@ -22,3 +22,10 @@
 - 执行者 Bash 内的 git、Git 工具在 `New folder` 上均通过（`git-bridge.log`）。
 
 重新运行：执行本目录的 `run.cmd`。
+
+## 第三次本机运行（2026-10-21 22:39 UTC）
+
+- 完整回归：118 项，0 失败，1 项跳过（`New folder` 已无所有权冲突，前提不成立）。
+- Codex 0.160 真实沙箱（`codex sandbox -- git rev-parse --show-toplevel`，受限令牌，不调用模型）：
+  不带信任、带环境变量信任、带 `shell_environment_policy.set` 三种情况均退出码 0，输出 `C:/Users/Thodmc/OneDrive/Desktop/New folder`。
+  即：在本脚本的环境中，协作室截图里的 dubious ownership 已无法复现；宿主内的实际表现需在重启后的协作室中确认。

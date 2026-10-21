@@ -15,33 +15,41 @@
       "stdout": "codex-cli 0.160.0\n",
       "stderr": ""
     },
+    "sandbox_help": {
+      "args": [
+        "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
+        "sandbox",
+        "--help"
+      ],
+      "exit_code": 0,
+      "stdout": "Run commands within a Codex-provided sandbox\n\nUsage: codex sandbox [OPTIONS] [COMMAND]...\n\nArguments:\n  [COMMAND]...\n          Full command args to run under Windows restricted token sandbox\n\nOptions:\n  -c, --config <key=value>\n          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`.\n          Use a dotted path (`foo.bar.baz`) to override nested values. The `value` portion is parsed\n          as TOML. If it fails to parse as TOML, the raw string is used as a literal.\n          \n          Examples: - `-c model=\"o3\"` - `-c 'sandbox_permissions=[\"disk-full-read-access\"]'` - `-c\n          shell_environment_policy.inherit=all`\n\n      --sandbox-state-json <JSON>\n          JSON value from `codex/sandbox-state-meta` to apply directly\n\n      --enable <FEATURE>\n          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`\n\n      --sandbox-state-readable-root <SANDBOX_STATE_READABLE_ROOT>\n          Add a readable root to the supplied sandbox state. Repeat for multiple roots\n\n      --disable <FEATURE>\n          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`\n\n      --sandbox-state-disable-network\n          Disable direct network access in the supplied sandbox state\n\n  -P, --permission-profile <NAME>\n          Named permissions profile to apply from the active configuration stack\n\n  -p, --profile <CONFIG_PROFILE>\n          Layer $CODEX_HOME/<name>.config.toml on top of the base user config\n\n  -C, --cd <DIR>\n          Working directory used for profile resolution and command execution\n\n      --include-managed-config\n          Include managed requirements while resolving an explicit permissions profile\n\n  -h, --help\n          Print help (see a summary with '-h')\n",
+      "stderr": ""
+    },
     "sandbox_without_trust": {
       "args": [
         "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
         "sandbox",
-        "windows",
         "--",
         "git",
         "rev-parse",
         "--show-toplevel"
       ],
-      "exit_code": 1,
-      "stdout": "",
-      "stderr": "windows sandbox failed: CreateProcessAsUserW failed: 2 (The system cannot find the file specified.) | cwd=C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder | cmd=windows -- git rev-parse --show-toplevel | env_u16_len=5045 | si_flags=256 | creation_flags=134743040\n"
+      "exit_code": 0,
+      "stdout": "C:/Users/Thodmc/OneDrive/Desktop/New folder\n",
+      "stderr": ""
     },
     "sandbox_with_env_trust": {
       "args": [
         "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
         "sandbox",
-        "windows",
         "--",
         "git",
         "rev-parse",
         "--show-toplevel"
       ],
-      "exit_code": 1,
-      "stdout": "",
-      "stderr": "windows sandbox failed: CreateProcessAsUserW failed: 2 (The system cannot find the file specified.) | cwd=C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder | cmd=windows -- git rev-parse --show-toplevel | env_u16_len=5224 | si_flags=256 | creation_flags=134743040\n"
+      "exit_code": 0,
+      "stdout": "C:/Users/Thodmc/OneDrive/Desktop/New folder\n",
+      "stderr": ""
     },
     "sandbox_with_policy_set": {
       "args": [
@@ -49,15 +57,14 @@
         "-c",
         "shell_environment_policy.set={GIT_CONFIG_GLOBAL = \"C:\\\\Users\\\\Thodmc\\\\.local\\\\share\\\\tiered-dev\\\\git\\\\e766f267e48e7855-host.gitconfig\", GIT_CONFIG_PARAMETERS = \"'safe.directory'='C:/Users/Thodmc/OneDrive/Desktop/New folder'\"}",
         "sandbox",
-        "windows",
         "--",
         "git",
         "rev-parse",
         "--show-toplevel"
       ],
-      "exit_code": 1,
-      "stdout": "",
-      "stderr": "windows sandbox failed: CreateProcessAsUserW failed: 2 (The system cannot find the file specified.) | cwd=C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder | cmd=windows -- git rev-parse --show-toplevel | env_u16_len=5224 | si_flags=256 | creation_flags=134743040\n"
+      "exit_code": 0,
+      "stdout": "C:/Users/Thodmc/OneDrive/Desktop/New folder\n",
+      "stderr": ""
     },
     "plain_git": {
       "args": [

@@ -118,6 +118,6 @@ test_astra_has_fixed_readonly_flags_and_stdin_prompt (test_deployment.ReviewTest
 test_runtime_or_home_cannot_be_review_project (test_deployment.ReviewTests.test_runtime_or_home_cannot_be_review_project) ... ok
 
 ----------------------------------------------------------------------
-Ran 118 tests in 10.124s
+Ran 118 tests in 9.392s
 
 OK (skipped=1)

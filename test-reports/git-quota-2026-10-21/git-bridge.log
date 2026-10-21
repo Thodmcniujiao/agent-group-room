@@ -12,7 +12,7 @@ test_exhausted_supervisor_stops_before_spending_a_call (__main__.SupervisorQuota
 test_supervisor_prompt_contains_every_participants_quota (__main__.SupervisorQuotaFlowTests.test_supervisor_prompt_contains_every_participants_quota) ... ok
 
 ----------------------------------------------------------------------
-Ran 12 tests in 3.651s
+Ran 12 tests in 4.005s
 
 OK (skipped=1)
 exit=0 
