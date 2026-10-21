@@ -1,0 +1,73 @@
+{
+  "codex": "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
+  "project": "C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder",
+  "trust": {
+    "GIT_CONFIG_GLOBAL": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\git\\e766f267e48e7855-host.gitconfig",
+    "GIT_CONFIG_PARAMETERS": "'safe.directory'='C:/Users/Thodmc/OneDrive/Desktop/New folder'"
+  },
+  "cases": {
+    "codex_version": {
+      "args": [
+        "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "codex-cli 0.160.0\n",
+      "stderr": ""
+    },
+    "sandbox_without_trust": {
+      "args": [
+        "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
+        "sandbox",
+        "windows",
+        "--",
+        "git",
+        "rev-parse",
+        "--show-toplevel"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "windows sandbox failed: CreateProcessAsUserW failed: 2 (The system cannot find the file specified.) | cwd=C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder | cmd=windows -- git rev-parse --show-toplevel | env_u16_len=5045 | si_flags=256 | creation_flags=134743040\n"
+    },
+    "sandbox_with_env_trust": {
+      "args": [
+        "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
+        "sandbox",
+        "windows",
+        "--",
+        "git",
+        "rev-parse",
+        "--show-toplevel"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "windows sandbox failed: CreateProcessAsUserW failed: 2 (The system cannot find the file specified.) | cwd=C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder | cmd=windows -- git rev-parse --show-toplevel | env_u16_len=5224 | si_flags=256 | creation_flags=134743040\n"
+    },
+    "sandbox_with_policy_set": {
+      "args": [
+        "C:\\Users\\Thodmc\\AppData\\Local\\OpenAI\\Codex\\bin\\23f7d7f110b19ac3\\codex.exe",
+        "-c",
+        "shell_environment_policy.set={GIT_CONFIG_GLOBAL = \"C:\\\\Users\\\\Thodmc\\\\.local\\\\share\\\\tiered-dev\\\\git\\\\e766f267e48e7855-host.gitconfig\", GIT_CONFIG_PARAMETERS = \"'safe.directory'='C:/Users/Thodmc/OneDrive/Desktop/New folder'\"}",
+        "sandbox",
+        "windows",
+        "--",
+        "git",
+        "rev-parse",
+        "--show-toplevel"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "windows sandbox failed: CreateProcessAsUserW failed: 2 (The system cannot find the file specified.) | cwd=C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder | cmd=windows -- git rev-parse --show-toplevel | env_u16_len=5224 | si_flags=256 | creation_flags=134743040\n"
+    },
+    "plain_git": {
+      "args": [
+        "git",
+        "rev-parse",
+        "--show-toplevel"
+      ],
+      "exit_code": 0,
+      "stdout": "C:/Users/Thodmc/OneDrive/Desktop/New folder\n",
+      "stderr": ""
+    }
+  }
+}

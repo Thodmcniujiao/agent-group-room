@@ -1,2 +1,2 @@
-{"tests_run": 117, "failures": 1, "errors": 0, "skipped": 0, "passed": false}
-exit=
+{"tests_run": 118, "failures": 0, "errors": 0, "skipped": 1, "passed": true}
+exit=0 

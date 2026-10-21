@@ -4,23 +4,15 @@ test_git_tool_is_offered_and_dispatched (__main__.ExecutorBridgeTests.test_git_t
 test_config_trusts_exactly_the_selected_root_and_includes_user_config_only_for_host (__main__.GitAccessTests.test_config_trusts_exactly_the_selected_root_and_includes_user_config_only_for_host) ... ok
 test_host_call_returns_output_and_real_error_text (__main__.GitAccessTests.test_host_call_returns_output_and_real_error_text) ... ok
 test_readonly_tool_reads_state_and_refuses_writes_or_outside_reads (__main__.GitAccessTests.test_readonly_tool_reads_state_and_refuses_writes_or_outside_reads) ... ok
-test_real_dubious_ownership_repository_is_trusted_only_through_the_host (__main__.GitAccessTests.test_real_dubious_ownership_repository_is_trusted_only_through_the_host) ... FAIL
+test_real_dubious_ownership_repository_is_trusted_only_through_the_host (__main__.GitAccessTests.test_real_dubious_ownership_repository_is_trusted_only_through_the_host) ... skipped 'plain git already accepts this folder, so there is no dubious ownership to verify here'
+test_codex_and_claude_sessions_receive_project_trust (__main__.MemberCliTrustTests.test_codex_and_claude_sessions_receive_project_trust) ... ok
 test_every_participant_including_supervisor_is_listed_with_real_levels (__main__.QuotaVisibilityTests.test_every_participant_including_supervisor_is_listed_with_real_levels) ... ok
 test_supervisor_payload_and_member_text_carry_quota (__main__.QuotaVisibilityTests.test_supervisor_payload_and_member_text_carry_quota) ... ok
 test_exhausted_supervisor_stops_before_spending_a_call (__main__.SupervisorQuotaFlowTests.test_exhausted_supervisor_stops_before_spending_a_call) ... ok
 test_supervisor_prompt_contains_every_participants_quota (__main__.SupervisorQuotaFlowTests.test_supervisor_prompt_contains_every_participants_quota) ... ok
 
-======================================================================
-FAIL: test_real_dubious_ownership_repository_is_trusted_only_through_the_host (__main__.GitAccessTests.test_real_dubious_ownership_repository_is_trusted_only_through_the_host)
 ----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "C:\Users\Thodmc\OneDrive\Desktop\agent-group-room\gui\test_git_bridge.py", line 72, in test_real_dubious_ownership_repository_is_trusted_only_through_the_host
-    self.assertNotEqual(before.returncode,0);self.assertIn('dubious ownership',before.stderr)
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: 0 == 0
+Ran 12 tests in 3.651s
 
-----------------------------------------------------------------------
-Ran 11 tests in 3.478s
-
-FAILED (failures=1)
-exit=
+OK (skipped=1)
+exit=0 

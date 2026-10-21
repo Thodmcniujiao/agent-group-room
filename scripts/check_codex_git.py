@@ -30,10 +30,12 @@ def main():
     results={'codex':codex,'project':str(project),'trust':trust,'cases':{}}
     if codex:
         results['cases']['codex_version']=run([codex,'--version'],base,project)
-        sandbox=[codex,'sandbox','windows','--']
+        results['cases']['sandbox_help']=run([codex,'sandbox','--help'],base,project)
+        # Codex 0.160 on Windows: `codex sandbox [--] COMMAND...` (no platform subcommand).
+        sandbox=[codex,'sandbox','--']
         results['cases']['sandbox_without_trust']=run(sandbox+git,base,project)
         results['cases']['sandbox_with_env_trust']=run(sandbox+git,{**base,**trust},project)
-        results['cases']['sandbox_with_policy_set']=run([codex,'-c','shell_environment_policy.set='+table,'sandbox','windows','--']+git,base,project)
+        results['cases']['sandbox_with_policy_set']=run([codex,'-c','shell_environment_policy.set='+table,'sandbox','--']+git,base,project)
     results['cases']['plain_git']=run(git,base,project)
     report.write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
 
