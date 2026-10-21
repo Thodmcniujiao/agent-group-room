@@ -28,7 +28,10 @@ def _selected_config(*args, **kwargs):
         changes.update(base_url=os.environ['TIERED_MEMBER_BASE_URL'],api_key=os.environ['TIERED_MEMBER_API_KEY'])
         if 'api.deepseek.com' not in changes['base_url']:
             changes['reasoning_effort']='provider-default'
-    if os.environ.get('TIERED_CONTEXT_FILE'):changes['max_output_tokens']=int(os.environ.get('TIERED_CONTEXT_OUTPUT','16384'))
+    if os.environ.get('TIERED_CONTEXT_FILE'):
+        # The room's output budget may exceed what the pinned executor accepts (1..16384).
+        from deepseek_mcp.provider_settings import DEFAULT_MAX_OUTPUT_TOKENS
+        changes['max_output_tokens']=max(1,min(int(os.environ.get('TIERED_CONTEXT_OUTPUT','16384')),DEFAULT_MAX_OUTPUT_TOKENS))
     if os.environ.get('TIERED_CONTEXT_TOOL_ROUNDS'):changes['max_turns']=int(os.environ['TIERED_CONTEXT_TOOL_ROUNDS'])
     if 'TIERED_MEMBER_EFFORT' in os.environ:
         from preferences import effort_id

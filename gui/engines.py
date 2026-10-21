@@ -293,6 +293,13 @@ def member_git_environment(project):
     except (OSError,ValueError):return {}
 
 
+def executor_output_tokens(requested):
+    """The pinned executor accepts 1..16384 output tokens; a larger room budget must not stop it."""
+    try:from deepseek_mcp.provider_settings import DEFAULT_MAX_OUTPUT_TOKENS as limit
+    except ImportError:limit=16384
+    return max(1,min(int(requested),limit))
+
+
 def tool_environment(project):
     """Host-owned Git trust and scratch folders for executor tools (see git_access)."""
     from git_access import ensure_config
@@ -324,8 +331,9 @@ async def deepseek_session(project,model,store=None,rid=None,member=None,context
         env.update(TIERED_CONTEXT_FILE=str(path),TIERED_CONTEXT_SOFT=str(context_turn.budget['soft']))
         env['TIERED_CONTEXT_FORCE']='1' if context_turn.forced else '0'
         env['TIERED_CONTEXT_TOOL_ROUNDS']=str(context_turn.budget['tool_rounds'])
-        env['TIERED_CONTEXT_OUTPUT']=str(context_turn.budget['output'])
-        env['TIERED_CONTEXT_OUTPUT_RESERVE']='0' if context_turn.budget['mode']=='separate' else str(context_turn.budget['output'])
+        output=executor_output_tokens(context_turn.budget['output'])
+        env['TIERED_CONTEXT_OUTPUT']=str(output)
+        env['TIERED_CONTEXT_OUTPUT_RESERVE']='0' if context_turn.budget['mode']=='separate' else str(output)
         if context_turn.tools:
             env.update(ROOM_DATABASE=str(Path(context_turn.store.db.execute('PRAGMA database_list').fetchone()[2]).resolve()),
                 ROOM_ID=rid,ROOM_SESSION=context_turn.key)

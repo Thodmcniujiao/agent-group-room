@@ -251,4 +251,14 @@ class ErrorReportingTests(unittest.TestCase):
         self.assertIn('FileNotFoundError',text);self.assertIn('python.exe',text);self.assertNotIn('TaskGroup',text)
 
 
+class ExecutorOutputLimitTests(unittest.TestCase):
+    def test_room_output_budget_is_clamped_to_executor_limit(self):
+        from engines import executor_output_tokens
+        self.assertEqual(executor_output_tokens(32768),16384)
+        self.assertEqual(executor_output_tokens(8192),8192)
+        self.assertEqual(executor_output_tokens(0),1)
+        source=(HERE.parent/'plugins/tiered-dev/scripts/deepseek_server.py').read_text(encoding='utf-8')
+        self.assertIn('min(int(os.environ.get(\'TIERED_CONTEXT_OUTPUT\',\'16384\')),DEFAULT_MAX_OUTPUT_TOKENS)',source)
+
+
 if __name__=='__main__':unittest.main()
