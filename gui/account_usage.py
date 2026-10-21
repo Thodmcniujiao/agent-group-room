@@ -168,7 +168,11 @@ def _summary(entry):
 def _level(entry):
     if entry.get('status')!='ready':return 'unknown'
     remaining=[w['remaining_percent'] for w in entry.get('windows',[])]
-    try:remaining+=[100 if Decimal(b['total_balance'])>0 else 0 for b in entry.get('balances',[])]
+    # Balances in several currencies are one account: usable while any of them is positive
+    # (DeepSeek reports USD 0.00 next to a funded CNY balance).
+    try:
+        amounts=[Decimal(b['total_balance']) for b in entry.get('balances',[])]
+        if amounts:remaining.append(100 if any(a>0 for a in amounts) else 0)
     except InvalidOperation:pass
     if not remaining:return 'unknown'
     low=min(remaining)

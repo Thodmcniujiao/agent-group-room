@@ -9,6 +9,14 @@ from supervision import validate_decision,supervisor_request
 import roster
 
 
+def describe_error(error):
+    """Show the real causes inside exception groups (anyio/MCP TaskGroup) instead of their summary."""
+    if isinstance(error,BaseExceptionGroup):
+        return '；'.join(describe_error(e) for e in error.exceptions)
+    text=str(error).strip()
+    return type(error).__name__+(': '+text if text else '')
+
+
 class SupervisorWorkflow:
     usage=None  # account_usage.UsageMonitor, attached by the GUI host
 
@@ -192,7 +200,7 @@ class SupervisorWorkflow:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            error=str(exc)[:1800]
+            error=describe_error(exc)[:1800]
             result['error']=error
         finally:
             if before is not None:

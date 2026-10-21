@@ -167,6 +167,10 @@ class QuotaVisibilityTests(unittest.TestCase):
         self.assertEqual(rows['supervisor']['level'],'exhausted');self.assertEqual(rows['ds']['level'],'ok')
         self.assertEqual(rows['claude']['level'],'unknown');self.assertEqual(rows['ds']['role'],'executor')
         self.assertIn('余额 CNY 12.30',rows['ds']['summary'])
+        from account_usage import _level
+        mixed={'status':'ready','windows':[],'balances':[{'currency':'USD','total_balance':'0.00'},{'currency':'CNY','total_balance':'19.76'}]}
+        self.assertEqual(_level(mixed),'ok')
+        mixed['balances'][1]['total_balance']='0';self.assertEqual(_level(mixed),'exhausted')
         self.assertEqual(rows['supervisor']['shared_with'],['gpt2'])
 
     def test_supervisor_payload_and_member_text_carry_quota(self):
@@ -237,6 +241,14 @@ class MemberCliTrustTests(unittest.TestCase):
             self.assertEqual(subprocess.run(['git','status'],cwd=root,env=env,capture_output=True).returncode,0)
             source=(HERE/'provider_sessions.py').read_text(encoding='utf-8')
             self.assertIn("config['shell_environment_policy']={'set':trust}",source)
+
+
+class ErrorReportingTests(unittest.TestCase):
+    def test_task_group_failures_show_their_real_cause(self):
+        from orchestrator import describe_error
+        error=ExceptionGroup('unhandled errors in a TaskGroup',[FileNotFoundError(2,'No such file','python.exe')])
+        text=describe_error(error)
+        self.assertIn('FileNotFoundError',text);self.assertIn('python.exe',text);self.assertNotIn('TaskGroup',text)
 
 
 if __name__=='__main__':unittest.main()
