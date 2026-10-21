@@ -1,0 +1,21 @@
+{
+  "backend_not_restarted": true,
+  "backend_pid": 66308,
+  "rooms_and_statuses_unchanged": true,
+  "room_count": 4,
+  "message_count": 102,
+  "preferences_and_encrypted_credentials_unchanged": true,
+  "live_assets_verified": true,
+  "light_dark_persist_after_reload": true,
+  "keyboard_enter_space_checked": true,
+  "footer_position_and_minimum_width_checked": true,
+  "minimum_sampled_dark_text_contrast": 7.56,
+  "browser_script_errors": false,
+  "model_generation_calls": 0,
+  "source_sha256": {
+    "gui/web/theme.js": "46c03017562aa1bf5ad77237505467eab2fde08319e97ed8141ebfa3bc6697cf",
+    "gui/web/theme.css": "e8a8e3b0f8b0fde1ac9f901fcf8401f6a3212201f4ea13dd50c0a6fdd515dbd6",
+    "gui/web/style.css": "ff164430df4f5ce7747ae95a43c929b335373713e9e564a9634a9fdb2a13387a",
+    "gui/web/index.html": "2fe72a0027f8491429baba242c9516daeade4bd47dd9120ad74c48806a025060"
+  }
+}

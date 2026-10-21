@@ -1,0 +1,33 @@
+{
+  "backend_pid": 66308,
+  "backend_health": {
+    "service": "tiered-dev-gui",
+    "version": "0.11.0"
+  },
+  "room_statuses": [
+    [
+      "075bd19146ea436eaffe8bac7d0012f7",
+      "complete"
+    ],
+    [
+      "0c05020abe7340229bd546ac1d5228cf",
+      "complete"
+    ],
+    [
+      "0cf08bbc70a44085aec6084dcda72183",
+      "complete"
+    ],
+    [
+      "cf39db9debef4ad2aa5d99f80271a7c9",
+      "blocked"
+    ]
+  ],
+  "message_count": 102,
+  "protected_file_hashes": {
+    "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\preferences.json": "8aa4fbaa481b5de281a51e16216fefbd99c1fcb2cab9aa2e2e92cc7a953e9942",
+    "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\avatars.json": "2e5d06aa4af18e4219bedbd2854c6943534a4f603108314a37eb6f1a83223e9e",
+    "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\deepseek.dpapi": "9fcbc95af988214c060fc3ecdbca164509b63bbaab250ff50114524ee0e6e83d",
+    "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\credentials\\deepseek.dpapi": "4e8c143082fabf9b0d9b6dc885d3efcc2aa6026285f49549d60f8eb6c3d159a2",
+    "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\credentials\\gemini.dpapi": "60b006faf5a0798bcbf2915e84f1de995bd84c002eea03817d29ae2c8e836aa6"
+  }
+}

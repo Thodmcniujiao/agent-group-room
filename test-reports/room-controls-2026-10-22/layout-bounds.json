@@ -1,0 +1,138 @@
+[
+  {
+    "avatar": {
+      "bottom": -57,
+      "height": 36,
+      "left": 880.5,
+      "right": 916.5,
+      "top": -93,
+      "width": 36,
+      "x": 880.5,
+      "y": -93
+    },
+    "avatarIdentity": "you",
+    "body": {
+      "bottom": -15.3125,
+      "height": 77.6875,
+      "left": 481.5,
+      "right": 868.5,
+      "top": -93,
+      "width": 387,
+      "x": 481.5,
+      "y": -93
+    },
+    "role": "you",
+    "row": {
+      "bottom": -15.3125,
+      "height": 77.6875,
+      "left": 265.5,
+      "right": 916.5,
+      "top": -93,
+      "width": 651,
+      "x": 265.5,
+      "y": -93
+    }
+  },
+  {
+    "avatar": {
+      "bottom": 46.6875,
+      "height": 36,
+      "left": 265.5,
+      "right": 301.5,
+      "top": 10.6875,
+      "width": 36,
+      "x": 265.5,
+      "y": 10.6875
+    },
+    "avatarIdentity": "chatgpt",
+    "body": {
+      "bottom": 88.375,
+      "height": 77.6875,
+      "left": 313.5,
+      "right": 655.578125,
+      "top": 10.6875,
+      "width": 342.078125,
+      "x": 313.5,
+      "y": 10.6875
+    },
+    "role": "chatgpt",
+    "row": {
+      "bottom": 88.375,
+      "height": 77.6875,
+      "left": 265.5,
+      "right": 916.5,
+      "top": 10.6875,
+      "width": 651,
+      "x": 265.5,
+      "y": 10.6875
+    }
+  },
+  {
+    "avatar": {
+      "bottom": 150.375,
+      "height": 36,
+      "left": 265.5,
+      "right": 301.5,
+      "top": 114.375,
+      "width": 36,
+      "x": 265.5,
+      "y": 114.375
+    },
+    "avatarIdentity": "claude",
+    "body": {
+      "bottom": 192.0625,
+      "height": 77.6875,
+      "left": 313.5,
+      "right": 726.5,
+      "top": 114.375,
+      "width": 413,
+      "x": 313.5,
+      "y": 114.375
+    },
+    "role": "claude",
+    "row": {
+      "bottom": 192.0625,
+      "height": 77.6875,
+      "left": 265.5,
+      "right": 916.5,
+      "top": 114.375,
+      "width": 651,
+      "x": 265.5,
+      "y": 114.375
+    }
+  },
+  {
+    "avatar": {
+      "bottom": 254.0625,
+      "height": 36,
+      "left": 880.5,
+      "right": 916.5,
+      "top": 218.0625,
+      "width": 36,
+      "x": 880.5,
+      "y": 218.0625
+    },
+    "avatarIdentity": "you",
+    "body": {
+      "bottom": 295.75,
+      "height": 77.6875,
+      "left": 507.5,
+      "right": 868.5,
+      "top": 218.0625,
+      "width": 361,
+      "x": 507.5,
+      "y": 218.0625
+    },
+    "role": "you",
+    "row": {
+      "bottom": 295.75,
+      "height": 77.6875,
+      "left": 265.5,
+      "right": 916.5,
+      "top": 218.0625,
+      "width": 651,
+      "x": 265.5,
+      "y": 218.0625
+    }
+  }
+]

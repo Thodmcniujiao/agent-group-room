@@ -26,6 +26,7 @@ from model_catalog import shared_catalog
 from account_usage import UsageMonitor
 from logins import Logins
 from room_settings import RoomSettings
+from avatars import Avatars
 
 STATE=Path(os.environ.get('TIERED_GUI_DATA_DIR',str(preferences.STATE/'gui')))
 STORE=Store(STATE)
@@ -38,6 +39,7 @@ WEB=Path(__file__).parent/'web'
 MODELS=shared_catalog()
 DEBUG=AgentDebugger()
 USAGE=UsageMonitor()
+AVATARS=Avatars(preferences.STATE/'avatars.json')
 WORK.usage=USAGE  # supervisor and members see the same account meters as the UI
 
 
@@ -54,11 +56,20 @@ async def bootstrap(request):
     selected=preferences.load();MODELS.request_refresh(selected);USAGE.request_refresh(selected)
     return JSONResponse({'token':TOKEN,'preferences':selected,'model_catalog':MODELS.snapshot(selected),
         'account_usage':USAGE.snapshot(selected),'connections':await roster.connections(selected),
-        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'version':'0.10.1'})
+        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'avatars':AVATARS.snapshot(),'version':'0.11.0'})
 
 
 async def health(request):
-    return JSONResponse({'service':'tiered-dev-gui','version':'0.10.1'})
+    return JSONResponse({'service':'tiered-dev-gui','version':'0.11.0'})
+
+
+async def avatars(request):
+    if request.method=='GET':return JSONResponse({'avatars':AVATARS.snapshot()})
+    identity=request.path_params['mid'];selected=preferences.load()
+    if identity not in ['you','supervisor',*[a['id'] for a in selected['agents']]]:raise ValueError('请选择已保存的身份。')
+    body=await request.json()
+    if not isinstance(body,dict) or set(body)!={'image'}:raise ValueError('头像设置格式无效。')
+    return JSONResponse({'avatars':AVATARS.save(identity,body['image'])})
 
 
 async def models(request):
@@ -100,6 +111,7 @@ async def connection_state(request):
 async def room_configuration(request):
     rid=request.path_params['rid']
     value=ROOMS.update(rid,await request.json()) if request.method=='POST' else ROOMS.load(rid)
+    if request.method=='POST':WORK.budget_gate.update(rid,value['context'])
     return JSONResponse({'room_settings':value})
 
 
@@ -244,7 +256,7 @@ async def room(request):
     rid=request.path_params['rid']
     return JSONResponse({'room':STORE.room(rid),'messages':STORE.messages(rid),
         'policy':STORE.policy(rid,preferences.load()['cooperation_policy']),'room_settings':ROOMS.load(rid),
-        'context':STORE.deliveries(rid)})
+        'context':STORE.deliveries(rid),'budget_wait':WORK.budget_gate.snapshot(rid)})
 
 
 async def policy(request):
@@ -256,12 +268,35 @@ async def policy(request):
 
 async def send(request):
     rid=request.path_params['rid'];body=await request.json()
+    return await send_body(rid,body)
+
+
+async def force_budget(request):
+    rid=request.path_params['rid'];STORE.room(rid)
+    if WORK.budget_gate.snapshot(rid):
+        WORK.budget_gate.force(rid);return JSONResponse({'status':'resumed'})
+    body=await request.json()
+    if not isinstance(body,dict):raise ValueError('请求格式无效。')
+    if not isinstance(body.get('text',''),str):raise ValueError('任务文本无效。')
+    if not body.get('text','').strip():
+        if not any(m['provider']=='you' for m in STORE.messages(rid)):raise ValueError('请先输入需要执行的任务。')
+        body['text']='继续上次未完成任务，沿用此前批准的方案与允许路径。先核对已有文件、执行结果及恢复记录，从未完成处继续，不重复已完成操作。'
+        body['mode']='workflow'
+    body['force_budget']=True
+    return await send_body(rid,body)
+
+
+async def send_body(rid,body):
+    if not isinstance(body,dict):raise ValueError('请求格式无效。')
     text=body.get('text','')
     if not isinstance(text,str) or not 1<=len(text.strip())<=24000: raise ValueError('请输入 1 至 24000 字符的需求。')
     mode=body.get('mode','discuss');target=body.get('target','all')
     if mode not in ['discuss','workflow']:
         raise ValueError('发送模式无效。')
     selected=ROOMS.load(rid)
+    forced=body.get('force_budget',False)
+    if type(forced) is not bool:raise ValueError('预算覆盖设置无效。')
+    if forced:selected['_force_context_budget']=True
     if target not in ['all','supervisor',*[m['id'] for m in selected['members']]]:raise ValueError('请选择当前团队中的成员。')
     if mode=='discuss' and target=='supervisor':
         STORE.room(rid)
@@ -273,6 +308,7 @@ async def send(request):
             return JSONResponse({'status':'updated'})
         mode='policy'
     WORK.start(rid,text.strip(),mode,target,selected)
+    if forced:STORE.message(rid,'system','用户选择本次协作超预算继续，仅跳过本地上下文软上限。',phase='本次预算覆盖')
     return JSONResponse({'status':'started'})
 
 
@@ -372,6 +408,8 @@ async def lifespan(app):
 
 
 routes=[Route('/',lambda request:FileResponse(WEB/'index.html')),
+    Route('/api/avatars',avatars),Route('/api/avatars/{mid}',avatars,methods=['POST']),
+    Route('/api/rooms/{rid}/force-budget',force_budget,methods=['POST']),
     Route('/api/health',health),Route('/api/bootstrap',bootstrap),Route('/api/models',models,methods=['GET','POST']),
     Route('/api/usage',usage,methods=['GET','POST']),Route('/api/agents/{mid}/usage',usage,methods=['POST']),
     Route('/api/settings',settings,methods=['POST']),Route('/api/connections',connections),

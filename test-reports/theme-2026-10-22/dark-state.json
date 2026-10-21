@@ -1,0 +1,9 @@
+{
+  "background": "rgb(17, 27, 40)",
+  "button": "切换到浅色模式",
+  "foreground": "rgb(168, 201, 230)",
+  "moon": "none",
+  "pressed": "true",
+  "sun": "block",
+  "theme": "dark"
+}

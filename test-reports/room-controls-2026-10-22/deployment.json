@@ -1,0 +1,26 @@
+{
+  "version": "0.11.0",
+  "health": true,
+  "preserved_tables": {
+    "rooms": true,
+    "messages": true,
+    "room_settings": true,
+    "policies": true,
+    "agent_sessions": true,
+    "context_deliveries": true,
+    "message_sequence": true
+  },
+  "configuration_and_encrypted_credentials_unchanged": true,
+  "rooms": 4,
+  "messages": 90,
+  "default_context_controls": {
+    "soft_tokens": 128000,
+    "output_tokens": 32768,
+    "margin_tokens": 6000,
+    "tool_rounds": 16,
+    "overflow": "rotate"
+  },
+  "avatars_count": 0,
+  "no_existing_task_started": true,
+  "backup": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\backups\\room-controls-deploy-20261021-231350Z"
+}

@@ -1,0 +1,19 @@
+{
+  "button": {
+    "bottom": 752,
+    "height": 32,
+    "left": 18,
+    "right": 50,
+    "top": 720,
+    "width": 32,
+    "x": 18,
+    "y": 720
+  },
+  "moon": "none",
+  "sun": "block",
+  "viewport": {
+    "height": 768,
+    "scrollWidth": 1024,
+    "width": 1024
+  }
+}

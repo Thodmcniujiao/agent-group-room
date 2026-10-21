@@ -1,0 +1,47 @@
+{
+  "timestamp_utc": "2026-10-21T23:31:17.232740+00:00",
+  "phase": "after",
+  "model_generation_requests": 0,
+  "checks": [
+    {
+      "name": "secure_path_directory",
+      "passed": true,
+      "result": null
+    },
+    {
+      "name": "secure_path_file",
+      "passed": true,
+      "result": null
+    },
+    {
+      "name": "secure_config_read",
+      "passed": true,
+      "result": {
+        "sha256": "89a10e4ea126295ccfc2dbe066f86d17559712fb69c898ac3746a51e704d5678",
+        "valid_json": true
+      }
+    },
+    {
+      "name": "production_executor_config",
+      "passed": true,
+      "result": {
+        "workspace": "C:\\Users\\Thodmc\\OneDrive\\Desktop\\New folder",
+        "model": "deepseek-flash",
+        "credential_available": true
+      }
+    },
+    {
+      "name": "production_mcp_startup_and_ping",
+      "passed": true,
+      "result": {
+        "initialized": true,
+        "tool_count": 11,
+        "ping": "pong from deepseek-mcp v0.1.0 | mode=auto | workspace=~\\OneDrive\\Desktop\\New folder (sandbox), flash=deepseek-flash/high, pro=deepseek-v4-pro/high, tools=Read,Write,Edit,Bash,Glob,Grep,NotebookEdit",
+        "tool_calls": [
+          "ping"
+        ]
+      }
+    }
+  ],
+  "passed": true
+}

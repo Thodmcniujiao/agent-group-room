@@ -25,7 +25,7 @@ def install():
             if saved.get('complete') and saved.get('model')==state.config.model:
                 from context import estimate
                 combined=saved['messages']+state.messages[1:]
-                if estimate(combined)<soft-reserve:state.messages=combined
+                if os.environ.get('TIERED_CONTEXT_FORCE')=='1' or estimate(combined)<soft-reserve:state.messages=combined
                 else:
                     # Start a new independent history, never cut signed/tool blocks.
                     archive=path.with_name(path.stem+'-previous.json')
@@ -46,7 +46,7 @@ def install():
     original_budget=loop._ensure_request_budget
     def check_budget(state,request_bytes):
         from context import estimate
-        if estimate({'messages':state.messages,'tools':state.tools})+reserve>soft:
+        if os.environ.get('TIERED_CONTEXT_FORCE')!='1' and estimate({'messages':state.messages,'tools':state.tools})+reserve>soft:
             raise loop.AgentBudgetExceeded('执行上下文达到本地预算；记录与文件保留，需要新执行分支继续。')
         original_budget(state,request_bytes)
     loop._ensure_request_budget=check_budget

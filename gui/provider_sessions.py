@@ -25,10 +25,10 @@ async def api_conversation(turn,prompt,key,base_url,on_text,effort=None):
     messages.append({'role':'user','content':prompt});turn.save()
     tools=tools_for(turn);usage={}
     async with AsyncOpenAI(api_key=key,base_url=base_url,timeout=180,max_retries=0) as client, httpx.AsyncClient(timeout=180) as http:
-        for _ in range(16):
+        for _ in range(turn.budget.get('tool_rounds',16)):
             from context import estimate
-            if estimate({'messages':messages,'tools':tools})>turn.input_budget:
-                raise RuntimeError('本轮上下文达到保守预算，原文与会话已保留；请缩小资料范围或开始新一轮。')
+            if hasattr(turn,'check_budget'):await turn.check_budget(estimate({'messages':messages,'tools':tools}),'发送模型请求')
+            elif estimate({'messages':messages,'tools':tools})>turn.input_budget:raise RuntimeError('本轮上下文超过本地预算。')
             if is_gemini(base_url):
                 # Keep every model-generated step, including opaque signatures, unchanged.
                 response=await http.post(GEMINI_URL,headers={'x-goog-api-key':key},
@@ -251,7 +251,13 @@ async def reply(turn,prompt,root,effort,source):
     from engines import preferences
     from model_catalog import effective_effort
     effort=await effective_effort(source,turn.model,effort)
-    content=turn.compose(prompt)
+    from budget_control import ContextBudgetExceeded
+    try:content=turn.compose(prompt)
+    except ContextBudgetExceeded as exceeded:
+        gate=getattr(turn.store,'budget_gate',None)
+        if gate is None:raise
+        await gate.wait(turn,exceeded)
+        content=turn.compose(prompt)
     mid=turn.store.message(turn.rid,turn.identity,model=turn.model,phase=turn.phase,status='streaming')
     current='';last=0;published=False
     def output(text):

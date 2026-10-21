@@ -1,0 +1,13 @@
+- heading "此协作室的上下文设置" [level=2, ref=e201]
+- button "×" [ref=e202]
+- spinbutton "上下文软预算（tokens） 本地允许的上下文规模；API 按估算值检查。" [required, ref=e206]: 128000
+- spinbutton "输出预留 / API 输出上限 同一窗口的模型会从预算中扣除；CLI 输出由运行器控制。" [required, ref=e207]: 32768
+- spinbutton "安全余量（tokens） 为估算误差预留空间。" [required, ref=e208]: 6000
+- spinbutton "每次发言的工具续轮上限 达到轮数上限会停止，不宣称已完成。" [required, ref=e209]: 16
+- spinbutton "监工最多协作轮数" [required, ref=e210]: 12
+- combobox "历史达到预算时" [expanded=false, ref=e211]: 自动建立新分支，保留原文
+  - option "自动建立新分支，保留原文" [selected, ref=e212]
+  - option "保留当前上下文，等待操作" [ref=e213]
+- button "恢复默认数值" [ref=e203]
+- button "取消" [ref=e204]
+- button "保存此协作室设置" [ref=e205]

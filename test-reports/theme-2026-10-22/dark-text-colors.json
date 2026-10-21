@@ -1,0 +1,82 @@
+[
+  {
+    "bg": "rgb(32, 50, 71)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content"
+  },
+  {
+    "bg": "rgb(32, 50, 71)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(165, 182, 201)",
+    "tag": "roster-note"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": ""
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": ""
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": ""
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": ""
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note"
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": ""
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note"
+  }
+]

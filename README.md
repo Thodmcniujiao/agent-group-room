@@ -212,3 +212,21 @@ Open each member's context badge to inspect delivery records and execution contr
 
 - [上下文调查与计划 / Research and plan](docs/context-sharing-plan.zh-CN.md)
 - [测试档案 / Test archive](test-reports/context-2026-10-21/README.md)
+
+
+## 协作室上下文与头像 / Room context controls and avatars (v0.11.0)
+
+每个协作室顶部新增“上下文设置”，独立配置上下文软预算、输出预留/API 输出上限、安全余量、工具续轮上限、监工轮数和历史溢出处理。完整请求会计入系统提示、JSON 转义与工具定义；未自动装入的群原文仍可按消息 ID 读取。
+
+超过本地预算时，当前请求等待操作。输入框右侧“超预算继续”恢复同一个等待请求，并仅为本次协作忽略本地软上限；调大预算并保存也能恢复符合预算的等待请求。服务重启后，未完成任务按中断处理；再次点击该按钮会让监工核对已有文件和执行记录后继续任务，不会恢复已消失的进程。
+
+用户消息和头像靠右、成员靠左。Agent 管理中的“设置所有头像”支持你、独立监工和每个已保存 Agent，上传 PNG/JPEG/WebP，居中裁切为方形，并可恢复默认。头像按身份保存在本机，与成员入群/退群和密钥分离。
+
+Each room has independent context, output reserve, safety margin, tool-round, supervisor-round and overflow controls. Local budget pauses retain the pending request. The composer’s override button resumes it and bypasses local soft limits for that collaboration only; provider limits still apply. Increasing the room budget can also release a pending request. After a service restart, continuation checks prior work in a new run rather than restoring a lost process.
+
+User bubbles align right and agent bubbles align left. Agent management supports persistent local raster avatars for the user, supervisor and every saved agent, with upload and reset controls.
+
+测试留档 / Test evidence: [room-controls-2026-10-22](test-reports/room-controls-2026-10-22/README.md).
+
+
+左下角月亮/太阳按钮可一键切换深色与浅色主题；首次跟随系统，手动选择后在本机记住。聊天、侧栏、输入框与设置窗口同步切换。The lower-left moon/sun button toggles light and dark themes and remembers the choice locally. See [theme checks](test-reports/theme-2026-10-22/README.md).

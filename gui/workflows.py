@@ -167,6 +167,8 @@ import roster
 class Workflows(SupervisorWorkflow):
     def __init__(self,store,usage=None):
         self.store=store;self.running={};self.project_busy={};self.resume={};self.usage=usage
+        from budget_control import BudgetGate
+        self.budget_gate=BudgetGate(store);store.budget_gate=self.budget_gate
 
     def start(self,rid,text,mode,target,settings):
         if rid in self.running: raise ValueError('此会话正在运行，请先停止或等待完成。')

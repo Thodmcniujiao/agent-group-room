@@ -1,0 +1,98 @@
+[
+  {
+    "bg": "rgb(32, 50, 71)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content",
+    "contrast_ratio": 7.56
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content",
+    "contrast_ratio": 9.6
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content",
+    "contrast_ratio": 9.6
+  },
+  {
+    "bg": "rgb(32, 50, 71)",
+    "fg": "rgb(168, 201, 230)",
+    "tag": "message-content",
+    "contrast_ratio": 7.56
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(165, 182, 201)",
+    "tag": "roster-note",
+    "contrast_ratio": 8.0
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note",
+    "contrast_ratio": 8.36
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": "",
+    "contrast_ratio": 13.23
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note",
+    "contrast_ratio": 8.36
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": "",
+    "contrast_ratio": 13.23
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note",
+    "contrast_ratio": 8.36
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": "",
+    "contrast_ratio": 13.23
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note",
+    "contrast_ratio": 8.36
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": "",
+    "contrast_ratio": 13.23
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note",
+    "contrast_ratio": 8.36
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(220, 231, 242)",
+    "tag": "",
+    "contrast_ratio": 13.23
+  },
+  {
+    "bg": "rgb(22, 31, 44)",
+    "fg": "rgb(169, 186, 205)",
+    "tag": "model-catalog-note",
+    "contrast_ratio": 8.36
+  }
+]

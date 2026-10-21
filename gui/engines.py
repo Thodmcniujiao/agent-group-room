@@ -322,7 +322,10 @@ async def deepseek_session(project,model,store=None,rid=None,member=None,context
         location.mkdir(parents=True,exist_ok=True)
         path=location/(context_turn.key+'-'+context_turn.state['branch']+'.json')
         env.update(TIERED_CONTEXT_FILE=str(path),TIERED_CONTEXT_SOFT=str(context_turn.budget['soft']))
-        env['TIERED_CONTEXT_OUTPUT_RESERVE']='0' if context_turn.budget['mode']=='separate' else '16384'
+        env['TIERED_CONTEXT_FORCE']='1' if context_turn.forced else '0'
+        env['TIERED_CONTEXT_TOOL_ROUNDS']=str(context_turn.budget['tool_rounds'])
+        env['TIERED_CONTEXT_OUTPUT']=str(context_turn.budget['output'])
+        env['TIERED_CONTEXT_OUTPUT_RESERVE']='0' if context_turn.budget['mode']=='separate' else str(context_turn.budget['output'])
         if context_turn.tools:
             env.update(ROOM_DATABASE=str(Path(context_turn.store.db.execute('PRAGMA database_list').fetchone()[2]).resolve()),
                 ROOM_ID=rid,ROOM_SESSION=context_turn.key)

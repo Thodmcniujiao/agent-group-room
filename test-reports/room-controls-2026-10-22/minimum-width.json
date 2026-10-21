@@ -1,0 +1,24 @@
+{
+  "context": {
+    "bottom": 53,
+    "height": 16,
+    "left": 658.015625,
+    "right": 720.015625,
+    "top": 37,
+    "width": 62,
+    "x": 658.015625,
+    "y": 37
+  },
+  "force": {
+    "bottom": 733,
+    "height": 40,
+    "left": 516.875,
+    "right": 602.875,
+    "top": 693,
+    "width": 86,
+    "x": 516.875,
+    "y": 693
+  },
+  "scrollWidth": 1024,
+  "width": 1024
+}

@@ -1,6 +1,7 @@
 """Room-local participants and model choices over the shared saved-agent library."""
 import copy
 from engines import preferences
+from context_settings import context_settings
 
 
 class RoomSettings:
@@ -33,15 +34,17 @@ class RoomSettings:
                 self.store.save_configuration(rid,stored)
         result=copy.deepcopy(defaults)
         result.update(stored)
+        result['context']=context_settings(stored.get('context'))
         result['team'],result['members']=preferences.resolve_team(result['agents'],stored['team'])
         result['room_id']=rid
         return result
 
     def update(self,rid,body):
-        if not isinstance(body,dict) or set(body)-{'team','supervisor','pause_before_execution','executor'}:
+        if not isinstance(body,dict) or set(body)-{'team','supervisor','pause_before_execution','executor','context'}:
             raise ValueError('协作室设置格式无效。')
         with self.store.lock:
             selected=self.load(rid)
+            controls=context_settings(body.get('context',selected['context']))
             team,_=preferences.resolve_team(selected['agents'],body.get('team',selected['team']))
             if not isinstance(body.get('supervisor',{}),dict):raise ValueError('监工设置无效。')
             config={**selected['supervisor'],**body.get('supervisor',{})}
@@ -62,7 +65,7 @@ class RoomSettings:
             if executor is None and choice=='auto':
                 executor=next((a['id'] for a in selected['agents'] if a['id'] in active and a['backend']=='deepseek'),None)
             epoch=selected.get('context_epoch',0)+(executor!=selected.get('executor'))
-            self.store.save_configuration(rid,dict(team=team,supervisor=config,pause_before_execution=pause,executor=executor,context_epoch=epoch,executor_choice=choice))
+            self.store.save_configuration(rid,dict(team=team,supervisor=config,pause_before_execution=pause,executor=executor,context_epoch=epoch,executor_choice=choice,context=controls))
             return self.load(rid)
 
     def membership(self,rid,aid,enabled):

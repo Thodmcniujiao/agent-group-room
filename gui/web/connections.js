@@ -22,9 +22,9 @@ export function keyHelp(member) {
 }
 
 export class ConnectionsPanel {
-  constructor(root, { onSaveKey, onLogin, onEdit, onDebug, onUsageRefresh }) {
+  constructor(root, { onSaveKey, onLogin, onEdit, onDebug, onUsageRefresh, onAvatar }) {
     this.root = root;
-    this.actions = { onSaveKey, onLogin, onEdit, onDebug, onUsageRefresh };
+    this.actions = { onSaveKey, onLogin, onEdit, onDebug, onUsageRefresh, onAvatar };
     this.cards = new Map();
     this.groups = new Map();
   }
@@ -61,7 +61,7 @@ export class ConnectionsPanel {
       card.member = member;
       const state = statuses[member.id] || {};
       card.name.textContent = member.name;
-      card.avatar.textContent = member.name === 'ChatGPT' ? 'G' : member.name.slice(0, 1).toUpperCase();
+      card.avatar.dataset.avatar=member.id;card.avatar.dataset.letter=member.name==='ChatGPT'?'G':member.name.slice(0,1).toUpperCase();card.avatar.textContent=card.avatar.dataset.letter;card.avatar.setAttribute('aria-label','设置 '+member.name+' 的头像');card.avatar.onclick=()=>this.actions.onAvatar(member.id);
       card.model.textContent = '默认模型 · ' + member.model;
       card.usage.render(usage[member.id]);
       card.catalog.textContent = catalogText(catalogs[member.id]);
@@ -118,7 +118,7 @@ export class ConnectionsPanel {
     const cli = ['chatgpt', 'claude'].includes(member.backend);
     root.innerHTML = `
       <div class="connection-card-top">
-        <span class="avatar small"></span>
+        <button type="button" class="avatar small avatar-edit"></button>
         <div class="connection-identity"><strong></strong><span class="connection-model"></span></div>
         <span class="connection-status" role="status"></span>
       </div>

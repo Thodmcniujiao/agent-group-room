@@ -29,7 +29,7 @@ class Store:
           CREATE TABLE IF NOT EXISTS agent_sessions(key TEXT PRIMARY KEY,room TEXT,identity TEXT,role TEXT,model TEXT,data TEXT,updated TEXT);
           CREATE TABLE IF NOT EXISTS context_deliveries(id TEXT PRIMARY KEY,room TEXT,identity TEXT,data TEXT,created TEXT);
         ''')
-        self.db.execute("UPDATE rooms SET status='interrupted' WHERE status IN ('running','paused')")
+        self.db.execute("UPDATE rooms SET status='interrupted' WHERE status IN ('running','paused','budget_paused')")
         self.db.execute("UPDATE messages SET status='interrupted' WHERE status='streaming'")
         import hashlib
         for row in self.db.execute("SELECT id,room,text FROM messages WHERE status='complete' AND id NOT IN (SELECT message_id FROM message_sequence) ORDER BY created,rowid").fetchall():

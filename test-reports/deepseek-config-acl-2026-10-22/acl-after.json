@@ -1,0 +1,25 @@
+{
+  "timestamp_utc": "2026-10-21T23:31:34.8280006Z",
+  "paths": [
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp",
+      "owner_sid": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "owner_matches_current_user": true,
+      "dacl_unchanged": true,
+      "sddl": "O:S-1-5-21-1001310448-2446451022-1573099233-1001G:S-1-5-21-1001310448-2446451022-1573099233-513D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;S-1-5-21-1001310448-2446451022-1573099233-1001)",
+      "inheritance_unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp\\config.json",
+      "owner_sid": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "owner_matches_current_user": true,
+      "dacl_unchanged": true,
+      "sddl": "O:S-1-5-21-1001310448-2446451022-1573099233-1001G:S-1-5-21-1001310448-2446451022-1573099233-513D:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;FA;;;S-1-5-21-1001310448-2446451022-1573099233-1001)",
+      "inheritance_unchanged": true
+    }
+  ],
+  "config_sha256": "89A10E4EA126295CCFC2DBE066F86D17559712FB69C898AC3746A51E704D5678",
+  "config_bytes_unchanged": true,
+  "repair_scope": "Owner only; exactly the config directory and config.json; no recursion",
+  "backup_path": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\backups\\deepseek-config-owner-20261021-233103Z"
+}

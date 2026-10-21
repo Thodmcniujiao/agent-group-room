@@ -8,6 +8,7 @@ import sys
 
 parser=argparse.ArgumentParser();parser.add_argument('--state',required=True);parser.add_argument('--port',type=int,default=49341)
 parser.add_argument('--catalog-file',help='Sanitized recorded metadata for reproducible selector checks')
+parser.add_argument('--controls-demo',action='store_true',help='Simulate a paused request without model calls')
 args=parser.parse_args();state=Path(args.state).resolve();state.mkdir(parents=True,exist_ok=True)
 os.environ['TIERED_GUI_DATA_DIR']=str(state/'gui');os.environ['TIERED_GUI_PORT']=str(args.port)
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'gui'))
@@ -45,5 +46,23 @@ source=next(a for a in settings['members'] if a['id']=='deepseek')
 turn=ContextTurn(server.STORE,rid,'deepseek',source,source['model'],settings,'界面夹具 · 执行契约')
 turn.compose('契约 T-01，第 1 版：只修改 demo.txt；保留 task_id、allowed_paths；不运行命令。')
 turn.complete('夹具答复，没有真实修改文件')
+if args.controls_demo:
+    from avatars import Avatars
+    server.AVATARS=Avatars(state/'avatars.json')
+    async def demo_run(rid,text,mode,target,settings,root):
+        try:
+            source=next(a for a in settings['agents'] if a['id']=='deepseek')
+            turn=ContextTurn(server.STORE,rid,'deepseek',source,source['model'],settings,'预算等待测试夹具')
+            turn.compose('测试契约保持不变；无真实执行。')
+            await turn.check_budget(140000,'模拟请求，不调用模型')
+            server.STORE.message(rid,'deepseek','夹具验证：原请求已继续，没有重新派发任务，也没有真实调用模型或修改文件。',model=source['model'])
+            server.STORE.status(rid,'complete')
+        except asyncio.CancelledError:
+            server.STORE.status(rid,'stopped');raise
+        finally:
+            server.WORK.running.pop(rid,None);server.WORK.project_busy.pop(str(root).casefold(),None)
+    server.WORK.run=demo_run
+    server.STORE.message(rid,'claude','成员回复位于左侧，用户回复位于右侧。此内容仅用于布局测试。')
+    server.STORE.message(rid,'you','这是右侧用户气泡，用来检查头像与成员气泡是否对称。')
 import uvicorn
 uvicorn.run(server.app,host='127.0.0.1',port=args.port,access_log=False,log_level='warning')

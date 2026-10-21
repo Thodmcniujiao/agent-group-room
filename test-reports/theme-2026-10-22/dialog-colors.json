@@ -1,0 +1,26 @@
+[
+  {
+    "background": "rgb(22, 31, 44)",
+    "foreground": "rgb(220, 231, 242)",
+    "id": "#context-settings-dialog",
+    "scheme": "dark"
+  },
+  {
+    "background": "rgb(28, 41, 57)",
+    "foreground": "rgb(220, 231, 242)",
+    "id": "#context-soft",
+    "scheme": "dark"
+  },
+  {
+    "background": "rgb(28, 41, 57)",
+    "foreground": "rgb(220, 231, 242)",
+    "id": "#context-overflow",
+    "scheme": "dark"
+  },
+  {
+    "background": "rgb(22, 31, 44)",
+    "foreground": "rgb(220, 231, 242)",
+    "id": "#prompt",
+    "scheme": "dark"
+  }
+]

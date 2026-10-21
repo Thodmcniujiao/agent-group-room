@@ -1,0 +1,13 @@
+{
+  "tested_sources_unchanged": true,
+  "no_configured_keys_in_archive": true,
+  "bubble_alignment_verified": true,
+  "avatars_decoded_after_reload": true,
+  "budget_resume_input_enabled": true,
+  "minimum_desktop_width_verified": true,
+  "browser_script_errors": false,
+  "model_generation_calls": 0,
+  "tests_discovered": 129,
+  "tests_passed": 127,
+  "tests_skipped": 2
+}
