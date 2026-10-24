@@ -7,3 +7,6 @@
 *.json text eol=lf
 *.ps1 text eol=crlf
 *.ico binary
+# Keep approved planning documents byte-for-byte, including intentional whitespace.
+Plan_documents/** -text -whitespace
+test-reports/**/approved-plan.md -text -whitespace

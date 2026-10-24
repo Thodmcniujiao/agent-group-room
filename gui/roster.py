@@ -37,21 +37,39 @@ async def connections(settings,refresh=False):
     for m in agents:
         if m['backend'] in ['chatgpt','claude']:result[m['id']]=base[m['backend']]
         else:
+            if m.get('google_billing',{}).get('mode') in ['auto','vertex']:
+                from google_billing import select,auth_available
+                try:
+                    route=select(m,bool(preferences.get_member_key(m)))
+                    ready=route=='developer' or auth_available()
+                    detail=('Vertex AI · ADC 已配置' if ready else '需要 Google Cloud ADC 登录') if route=='vertex' else 'Gemini API · 预付余额可用'
+                except ValueError as exc:ready=False;detail=str(exc)
+                result[m['id']]={'ready':ready,'detail':detail};continue
             ready=bool(preferences.get_member_key(m)) or m.get('no_auth',False)
             result[m['id']]={'ready':ready,'detail':('本机免密钥服务' if m.get('no_auth') else '密钥已保存') if ready else '需要 API 密钥'}
+    for m in settings.get('members',[]):
+        aid=m.get('agent_id',m['id'])
+        if aid in result:result[m['id']]=result[aid]
     return result
 
 
-async def reply(store,rid,mid,prompt,root,settings,phase,coding=False,boundary=None,branch='',allowed_paths=None):
+async def reply(store,rid,mid,prompt,root,settings,phase,coding=False,boundary=None,branch='',allowed_paths=None,publish=True,contract_text=None):
+    from optimization_settings import refresh_for_call
+    settings=refresh_for_call(store,rid,settings)
     monitor=mid=='supervisor'
     config=settings['supervisor'] if monitor else member(settings,mid)
     source=agent(settings,config['provider']) if monitor else config
+    if source.get('google_billing'):
+        from google_billing import prepare
+        source=await prepare(source)
+        store.event(rid,{'type':'activity','provider':mid,'text':'Google 调用渠道：'+source['_google_route']})
     backend=source['backend'];model=config['model'];effort=config.get('effort')
     if hasattr(store,'session'):
         from context import ContextTurn
         from provider_sessions import reply as session_reply
-        turn=ContextTurn(store,rid,mid,source,model,settings,phase,coding,boundary,branch,allowed_paths)
-        return await session_reply(turn,prompt,root,effort,source)
+        turn=ContextTurn(store,rid,mid,source,model,settings,phase,coding,boundary,branch,allowed_paths,contract_text)
+        if callable(prompt):prompt=prompt(turn)
+        return await session_reply(turn,prompt,root,effort,source,publish=publish)
     if backend in ['chatgpt','claude']:
         return await cli_reply(store,rid,backend,prompt,root,model,effort,phase,identity=mid,coding=coding)
     from model_catalog import effective_effort

@@ -1,0 +1,13 @@
+{
+  "tests": 258,
+  "passed": 256,
+  "skipped": 2,
+  "failures": 0,
+  "errors": 0,
+  "tested_source_hashes_match": true,
+  "deployed_assets_match": {
+    "workflow-controls.js": true,
+    "optimization-guide.html": true
+  },
+  "external_model_calls": false
+}

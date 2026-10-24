@@ -1,0 +1,9 @@
+{
+  "scope": "Five read-only supervisor decisions on the same task, adapter, model and effort; not full-task savings",
+  "baseline_passed": true,
+  "optimized_passed": true,
+  "baseline_input": 34144,
+  "optimized_input": 16647,
+  "baseline_output": 1856,
+  "optimized_output": 1388
+}

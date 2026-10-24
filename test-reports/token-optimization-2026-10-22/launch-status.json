@@ -1,0 +1,16 @@
+{
+  "version": "0.12.0",
+  "source_update": "complete",
+  "offline_regression": "162 cases: 160 passed, 2 skipped, 0 failures, 0 errors",
+  "desktop_launch": "manual_launch_required",
+  "automatic_approval": {
+    "action": "Start desktop launcher gui/launch.py through Start-Process -WindowStyle Hidden",
+    "result": "rejected",
+    "stated_reason": "blocked by policy",
+    "more_specific_reason_supplied": false,
+    "process_started": false
+  },
+  "next_action": "Double-click the existing desktop Agent Group Room shortcut.",
+  "committed": false,
+  "pushed": false
+}

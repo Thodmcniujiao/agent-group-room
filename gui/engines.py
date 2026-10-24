@@ -294,10 +294,9 @@ def member_git_environment(project):
 
 
 def executor_output_tokens(requested):
-    """The pinned executor accepts 1..16384 output tokens; a larger room budget must not stop it."""
-    try:from deepseek_mcp.provider_settings import DEFAULT_MAX_OUTPUT_TOKENS as limit
-    except ImportError:limit=16384
-    return max(1,min(int(requested),limit))
+    """Use the room's explicit budget in both MCP and HTTP child; never silently cap at 16K."""
+    from executor_limits import validate_output_tokens
+    return validate_output_tokens(requested)
 
 
 def tool_environment(project):
@@ -310,14 +309,21 @@ def tool_environment(project):
 
 
 @asynccontextmanager
-async def deepseek_session(project,model,store=None,rid=None,member=None,context_turn=None):
+async def deepseek_session(project,model,store=None,rid=None,member=None,context_turn=None,execution_budget=None):
     env={**os.environ,'DEEPSEEK_WORKSPACE':str(project),'TIERED_DEEPSEEK_MODEL':preferences.model_id(model),
          'TIERED_PROGRESS':'1','DEEPSEEK_MODE':'auto','PYTHONIOENCODING':'utf-8'}
     env.update(tool_environment(project))
+    if execution_budget:
+        from context_settings import context_settings
+        controls=context_settings(execution_budget)
+        env['TIERED_CONTEXT_OUTPUT']=str(executor_output_tokens(controls['output_tokens']))
+        env['TIERED_CONTEXT_TOOL_ROUNDS']=str(controls['tool_rounds'])
     key=preferences.get_key()
     if key: env['DEEPSEEK_API_KEY']=key
     if member:
-        key=preferences.get_member_key(member) or ('local-no-auth' if member.get('no_auth') else '')
+        from google_billing import prepare,credential
+        if member.get('google_billing') and not member.get('_google_route'):member=await prepare(member)
+        key=await credential(member)
         if not key: raise RuntimeError(member['name']+' 缺少 API 密钥。')
         env.update(TIERED_MEMBER_API_KEY=key,TIERED_MEMBER_BASE_URL=member['base_url'],DEEPSEEK_API_KEY=key)
         from model_catalog import effective_effort
@@ -325,38 +331,89 @@ async def deepseek_session(project,model,store=None,rid=None,member=None,context
         # Empty explicitly means omit, overriding any inherited MCP defaults.
         env['TIERED_MEMBER_EFFORT']=effort or ''
     if context_turn is not None:
+        from collaboration_log import call_for
+        audit=call_for(context_turn,(member or {}).get('backend','deepseek'))
         location=Path(context_turn.store.db.execute('PRAGMA database_list').fetchone()[2]).parent/'sessions'
         location.mkdir(parents=True,exist_ok=True)
         path=location/(context_turn.key+'-'+context_turn.state['branch']+'.json')
         env.update(TIERED_CONTEXT_FILE=str(path),TIERED_CONTEXT_SOFT=str(context_turn.budget['soft']))
+        env['TIERED_EXECUTOR_INSTRUCTIONS']=context_turn.instructions()
+        usage_file=path.with_suffix('.usage.jsonl');env['TIERED_USAGE_FILE']=str(usage_file)
+        if audit:
+            log_spool=location/(audit.id+'.trace.jsonl')
+            env['TIERED_CALL_LOG_SPOOL']=str(log_spool)
+            env['TIERED_CALL_LOG_CONTROL']=str(audit.owner.directory/rid/audit.run_id/'manifest.json')
         env['TIERED_CONTEXT_FORCE']='1' if context_turn.forced else '0'
         env['TIERED_CONTEXT_TOOL_ROUNDS']=str(context_turn.budget['tool_rounds'])
         output=executor_output_tokens(context_turn.budget['output'])
         env['TIERED_CONTEXT_OUTPUT']=str(output)
         env['TIERED_CONTEXT_OUTPUT_RESERVE']='0' if context_turn.budget['mode']=='separate' else str(output)
-        if context_turn.tools:
+        from optimization_settings import active
+        if context_turn.tools or active(context_turn.settings,'output_preview'):
             env.update(ROOM_DATABASE=str(Path(context_turn.store.db.execute('PRAGMA database_list').fetchone()[2]).resolve()),
                 ROOM_ID=rid,ROOM_SESSION=context_turn.key)
+        if active(context_turn.settings,'output_preview'):
+            env['ROOM_OUTPUT_PREVIEW']=str(context_turn.settings['optimization']['output_preview']['max_chars'])
         context_turn.state['native']['execution_file']=str(path);context_turn.save()
     params=StdioServerParameters(command=sys.executable,args=[str(SCRIPTS/'deepseek_server.py')],cwd=str(project),env=env)
     with tempfile.TemporaryDirectory(prefix='tiered-mcp-progress-') as folder, \
          (Path(folder)/'progress.log').open('w',encoding='utf-8') as errlog:
+        usage_offset=usage_file.stat().st_size if context_turn is not None and usage_file.exists() else 0
+        log_offset=0
+        def drain_log():
+            nonlocal log_offset
+            if context_turn is None or not audit:return
+            try:
+                with log_spool.open('rb') as stream:
+                    stream.seek(log_offset)
+                    while line:=stream.readline():
+                        if not line.endswith(b'\n'):break
+                        event=json.loads(line);audit.emit(event['event'],{**event['data'],'captured_at':event.get('time')});log_offset=stream.tell()
+            except FileNotFoundError:pass
+            except (OSError,ValueError):
+                def failed():raise OSError('log spool unavailable')
+                audit.owner._attempt(rid,failed)
+        def drain_usage():
+            nonlocal usage_offset
+            if context_turn is None:return
+            try:
+                with usage_file.open('r',encoding='utf-8') as stream:
+                    stream.seek(usage_offset)
+                    while line:=stream.readline():
+                        if not line.endswith('\n'):break
+                        event=json.loads(line)
+                        from usage import record
+                        context_turn.last_full_estimate=event.get('full_estimate')
+                        record(context_turn,event['adapter'],event.get('raw'),event['status'],event['request_ref'])
+                        usage_offset=stream.tell()
+            except FileNotFoundError:pass
         async def tail():
             with (Path(folder)/'progress.log').open('r',encoding='utf-8',errors='replace') as reader:
                 while True:
                     await asyncio.sleep(0.6)
+                    drain_log()
+                    drain_usage()
                     for line in reader.readlines():
                         if 'TIERED_EVENT ' in line and store:
                             try:
                                 event=json.loads(line.split('TIERED_EVENT ',1)[1])
                                 store.event(rid,{'type':'activity','provider':member['id'] if member else 'deepseek','text':f"第 {event['turn']} 轮 · {event['tool']}"})
                             except (ValueError,KeyError): pass
-        async with stdio_client(params,errlog=errlog) as (read,write):
-            async with ClientSession(read,write,read_timeout_seconds=timedelta(seconds=1900)) as session:
-                await session.initialize()
-                tail_task=asyncio.create_task(tail())
-                try: yield session
-                finally:
-                    tail_task.cancel()
-                    try: await tail_task
-                    except asyncio.CancelledError: pass
+        tail_task=None
+        try:
+            async with stdio_client(params,errlog=errlog) as (read,write):
+                async with ClientSession(read,write,read_timeout_seconds=timedelta(seconds=1900)) as session:
+                    await session.initialize()
+                    tail_task=asyncio.create_task(tail())
+                    yield session
+        finally:
+            if tail_task:
+                tail_task.cancel()
+                try:await tail_task
+                except asyncio.CancelledError:pass
+            drain_log();drain_usage()
+            if context_turn is not None and audit:
+                if hasattr(audit,'outcome'):audit.finish(*audit.outcome)
+                elif audit.meta['status']=='running':audit.finish('interrupted' if asyncio.current_task().cancelling() else 'failed')
+                try:log_spool.unlink(missing_ok=True)
+                except OSError:pass

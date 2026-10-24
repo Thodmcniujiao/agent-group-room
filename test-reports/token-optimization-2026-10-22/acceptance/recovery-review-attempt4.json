@@ -1,0 +1,46 @@
+{
+  "DesktopIconToggle/DesktopIconToggle.cs": {
+    "actual_sha256": "c02d2df95b7325427a8e6b7315922eb4f12394875f224942c598e366e0a02d81",
+    "records": [
+      {
+        "transaction_id": "0c27a54538044316a2ef1a18f7d7a4b3",
+        "tool": "Edit",
+        "path": "DesktopIconToggle/DesktopIconToggle.cs",
+        "sha256": "4edece45c4492e4866b932010b83ac57847d5fe4cd6d5a974aa4af866c349d15",
+        "status": "uncertain",
+        "warnings": []
+      },
+      {
+        "transaction_id": "950397d339ca4f10a860472a801c591e",
+        "tool": "Edit",
+        "path": "DesktopIconToggle/DesktopIconToggle.cs",
+        "sha256": "c02d2df95b7325427a8e6b7315922eb4f12394875f224942c598e366e0a02d81",
+        "status": "committed",
+        "warnings": []
+      },
+      {
+        "transaction_id": "cb980c85a1c44b58839047ffbe946abd",
+        "tool": "Edit",
+        "path": "DesktopIconToggle/DesktopIconToggle.cs",
+        "sha256": "ce552ae41726553fff6083f4cc08cbad01bc52b60235e16c71f82922133fad4e",
+        "status": "uncertain",
+        "warnings": []
+      }
+    ],
+    "review": "Fixture controller verified the current final version; older differing intents remain explicitly uncertain in this archive, not claimed successful."
+  },
+  "DesktopIconToggle/README.md": {
+    "actual_sha256": "5977ba903740b090fe69bca4e259431cd79e124e4e7190b209f079c883120a72",
+    "records": [
+      {
+        "transaction_id": "5f2b500885ff4ca78f8d3c084b8c4659",
+        "tool": "Edit",
+        "path": "DesktopIconToggle/README.md",
+        "sha256": "5977ba903740b090fe69bca4e259431cd79e124e4e7190b209f079c883120a72",
+        "status": "committed",
+        "warnings": []
+      }
+    ],
+    "review": "Fixture controller verified the current final version; older differing intents remain explicitly uncertain in this archive, not claimed successful."
+  }
+}

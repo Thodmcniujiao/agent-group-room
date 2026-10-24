@@ -1,0 +1,44 @@
+{
+  "DesktopIconToggle/DesktopIconToggle.cs": {
+    "actual_sha256": "39adf9837b82e2e9626ab0409de4ee2052c331bd5dded4f7982fe173b48701e0",
+    "records": [
+      {
+        "transaction_id": "0d7adc5ecfc64c79ba60ea87c6994361",
+        "tool": "Write",
+        "path": "DesktopIconToggle/DesktopIconToggle.cs",
+        "sha256": "39adf9837b82e2e9626ab0409de4ee2052c331bd5dded4f7982fe173b48701e0",
+        "status": "committed",
+        "warnings": []
+      }
+    ],
+    "review": "Fixture controller verified the current final version; older differing intents remain explicitly uncertain in this archive, not claimed successful."
+  },
+  "DesktopIconToggle/README.md": {
+    "actual_sha256": "48b6a3e716f9edde132e800d955025d4a54c9f1090e9b42a0b767b5d626c99af",
+    "records": [
+      {
+        "transaction_id": "64b046b51c814ecfafa78074a9ff3c98",
+        "tool": "Write",
+        "path": "DesktopIconToggle/README.md",
+        "sha256": "48b6a3e716f9edde132e800d955025d4a54c9f1090e9b42a0b767b5d626c99af",
+        "status": "committed",
+        "warnings": []
+      }
+    ],
+    "review": "Fixture controller verified the current final version; older differing intents remain explicitly uncertain in this archive, not claimed successful."
+  },
+  "DesktopIconToggle/build.cmd": {
+    "actual_sha256": "04adb99a59083a1c17acef9167a0b5bac7e6810dd03b8965f98c18783414edc8",
+    "records": [
+      {
+        "transaction_id": "8f66342adbf540b18012c45a8fdde1a2",
+        "tool": "Write",
+        "path": "DesktopIconToggle/build.cmd",
+        "sha256": "04adb99a59083a1c17acef9167a0b5bac7e6810dd03b8965f98c18783414edc8",
+        "status": "committed",
+        "warnings": []
+      }
+    ],
+    "review": "Fixture controller verified the current final version; older differing intents remain explicitly uncertain in this archive, not claimed successful."
+  }
+}

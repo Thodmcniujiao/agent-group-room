@@ -1,0 +1,14 @@
+{
+  "fixture_only": true,
+  "model_calls": 0,
+  "status": "complete",
+  "approval_documents": 1,
+  "user_approvals": 1,
+  "button_action_bindings": 1,
+  "screenshot_checks": {
+    "dark_and_light_document": true,
+    "approval_disabled_after_success": true,
+    "document_horizontal_overflow": false
+  },
+  "scenario": "Orphan project lock -> open host document -> approve -> workflow completes, no model or file changes"
+}

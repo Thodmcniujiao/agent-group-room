@@ -1,0 +1,76 @@
+{
+  "feature": "Optimization options explanation links",
+  "version": "0.13.0",
+  "live_model_calls": false,
+  "backend_restarted": false,
+  "production_configuration_mutated": false,
+  "served_files": [
+    {
+      "file": "gui/web/index.html",
+      "status": 200,
+      "matches_local_source": true,
+      "no_cache": true
+    },
+    {
+      "file": "gui/web/context-optimization.js",
+      "status": 200,
+      "matches_local_source": true,
+      "no_cache": true
+    },
+    {
+      "file": "gui/web/context-optimization.css",
+      "status": 200,
+      "matches_local_source": true,
+      "no_cache": true
+    },
+    {
+      "file": "gui/web/optimization-guide.html",
+      "status": 200,
+      "matches_local_source": true,
+      "no_cache": true
+    },
+    {
+      "file": "gui/web/optimization-guide.css",
+      "status": 200,
+      "matches_local_source": true,
+      "no_cache": true
+    }
+  ],
+  "all_links_passed": true,
+  "controls_covered": 23,
+  "links_checked": 25,
+  "fixture_save_persisted": true,
+  "fixture_other_room_unchanged": true,
+  "a11y": {
+    "help-a11y.json": {
+      "inapplicable": 66,
+      "incomplete": 1,
+      "passes": 22,
+      "violations": 0
+    },
+    "guide-a11y.json": {
+      "inapplicable": 58,
+      "incomplete": 0,
+      "passes": 31,
+      "violations": 0
+    }
+  },
+  "viewport_sizes": [
+    [
+      1440,
+      1000
+    ],
+    [
+      420,
+      860
+    ]
+  ],
+  "source_sha256": {
+    "gui/web/index.html": "b7c7a4f641d9ddc943be9a6d8ddb3859a8135d33cf612810b1633358e70af4d2",
+    "gui/web/context-optimization.js": "5d75fa51b78d4fbfc5481a46dae22db6461406d471ab4fc037cf5a962d606cb3",
+    "gui/web/context-optimization.css": "1863b7ddc445e86e5f443be85f1db0122310f5de0ef50e26bfaefe140c3de72a",
+    "gui/web/optimization-guide.html": "ba95a890e5cca33135cfe61a8ad595092975b4b5877eae6e84f1ffb6b10834e6",
+    "gui/web/optimization-guide.css": "80e1490bfa1b8bc3df985cb7656509838ce1f9cae8800fdf6e655f9b2206c51f"
+  },
+  "passed": true
+}

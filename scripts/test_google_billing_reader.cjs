@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const reader=require('../browser/google-billing-sync/reader.js');
+const headers=['赠金名称','状态','剩余金额','赠金 ID','使用范围','开始日期','结束日期'];
+const row=['Free Trial','可用','£226.17','FreeTrial:fixture','特定使用情况；免费试用条款','2026年10月1日','2026年12月30日'];
+const url='https://console.cloud.google.com/billing/ABCDEF-123456-ABC123/credits/all';
+let result=reader.credits(headers,[row],url);assert.equal(result.credits[0].remaining,'226.17');assert.deepEqual(result.credits[0].eligible_routes,['vertex']);
+assert.equal(result.credits[0].expires_at,'2026-12-30T00:00:00.000Z');
+assert.equal(reader.credits(headers,[[...row.slice(0,1),'已过期',...row.slice(2)]],url).credits[0].status,'expired');
+assert.throws(()=>reader.money('$5.00'));assert.throws(()=>reader.money('£1.234,56'));assert.throws(()=>reader.money('£5.00 £10.00'));
+assert.throws(()=>reader.credits(headers,[[...row.slice(0,3),'FreeTrial:…',...row.slice(4)]],url));
+assert.throws(()=>reader.credits(headers.slice(0,-1),[row],url));
+const monthly=[...row];monthly[0]='Google Developer Program premium benefit';monthly[3]='monthly-id';monthly[4]='整个 Google Cloud';
+assert.deepEqual(reader.credits(headers,[monthly],url).credits[0].eligible_routes,[]);
+assert.throws(()=>reader.prepay('no account',['Available credits £5.00'],'https://aistudio.google.com/billing'));
+assert.throws(()=>reader.prepay('ABCDEF-123456-ABC123 ABCDEF-123456-ABC999',['Available credits £5.00'],'https://aistudio.google.com/billing'));
+assert.equal(reader.prepay('ABCDEF-123456-ABC123',['Available credits GBP 5.00'],'https://aistudio.google.com/billing').remaining,'5.00');
+console.log('Google billing reader: 13 assertions passed');

@@ -1,0 +1,2 @@
+# Optional Voice Studio dependencies; install after the root requirements.
+edge-tts==7.3.1

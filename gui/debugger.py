@@ -64,7 +64,7 @@ class AgentDebugger:
         source={**agent,'model':preferences.model_id(body.get('model',agent['model'])),'effort':body.get('effort',agent['effort'])}
         source['effort']=preferences.effort_id(source['effort'])
         key=preferences.get_member_key(source) if source['backend'] not in ['chatgpt','claude'] else ''
-        if not key and source['backend'] not in ['chatgpt','claude'] and not source.get('no_auth'):raise ValueError(source['name']+' 尚未配置 API 密钥，请先保存密钥。')
+        if not key and source['backend'] not in ['chatgpt','claude'] and not source.get('no_auth') and source.get('_google_route')!='vertex':raise ValueError(source['name']+' 尚未配置 API 密钥，请先保存密钥。')
         # Retain a short in-memory transcript per agent; never create group-chat rooms.
         previous=[jid for jid,j in self.jobs.items() if j.agent['id']==agent['id'] and j.data['status']!='running']
         for jid in previous[:-7]:del self.jobs[jid]
@@ -86,6 +86,23 @@ class AgentDebugger:
                         await cli_reply(job,job.data['id'],source['backend'],instruction,Path(folder),
                             source['model'],source['effort'],'调试',identity=aid,coding=False)
                 else:
+                    if source.get('google_billing'):
+                        from google_billing import credential
+                        from vertex_protocol import is_vertex,endpoint,request,response
+                        from api_protocol import GEMINI_URL,gemini_request,gemini_response
+                        import httpx
+                        key=await credential(source);job.secret=key
+                        vertex=is_vertex(source['base_url'])
+                        from vertex_protocol import headers as vertex_headers
+                        headers=vertex_headers(source['base_url'],key) if vertex else {'x-goog-api-key':key}
+                        messages=[{'role':'user','content':instruction}]
+                        payload=request(source['model'],messages,max_tokens=2048) if vertex else gemini_request(source['model'],messages,max_tokens=2048)
+                        async with httpx.AsyncClient(timeout=150) as client:
+                            r=await client.post(endpoint(source['base_url'],source['model']) if vertex else GEMINI_URL,headers=headers,json=payload)
+                        if r.is_error:raise ValueError('Google '+source['_google_route']+' 调试失败（HTTP '+str(r.status_code)+'）。')
+                        raw=response(r.json()) if vertex else gemini_response(r.json())
+                        job.data['route']=source['_google_route'];job.update(job.data['id'],raw['choices'][0]['message']['content'])
+                        job.finish('complete');return
                     from model_catalog import effective_effort
                     effort=await effective_effort(source,source['model'],source['effort'])
                     await deepseek_reply(job,job.data['id'],instruction,source['model'],'调试',identity=aid,

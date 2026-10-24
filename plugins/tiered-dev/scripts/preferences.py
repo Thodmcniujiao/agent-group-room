@@ -66,23 +66,36 @@ def validate_members(members,limit=20):
             if no_auth and parsed.hostname not in ['127.0.0.1','localhost','::1']: raise ValueError('免密钥模式仅用于本机服务。')
         group=provider_group(m)
         if not isinstance(group,str) or not 1<=len(group.strip())<=60: raise ValueError('服务商分组需要 1 至 60 字符。')
-        result.append(dict(id=mid,name=name.strip(),backend=backend,model=model,effort=effort,base_url=endpoint.rstrip('/'),no_auth=no_auth,group=group.strip()))
+        clean=dict(id=mid,name=name.strip(),backend=backend,model=model,effort=effort,base_url=endpoint.rstrip('/'),no_auth=no_auth,group=group.strip())
+        if m.get('google_billing') is not None:
+            from google_billing import config
+            if backend!='openai-compatible' or parsed.hostname!='generativelanguage.googleapis.com':raise ValueError('Google 结算路由仅用于官方 Gemini 连接。')
+            clean['google_billing']=config(m['google_billing'])
+        result.append(clean)
     return result
 
 
 def resolve_team(agents,team):
-    """Only saved IDs may enter the team; connection details always come from the library."""
+    """Resolve room identities while keeping connections and credentials in the library."""
     if not isinstance(team,list) or len(team)>100: raise ValueError('团队选择无效。')
     library={a['id']:a for a in agents};seen=set();refs=[];members=[]
     for item in team:
         if not isinstance(item,dict): raise ValueError('团队选择无效。')
         aid=member_id(item.get('agent_id'))
-        if aid in seen or aid not in library: raise ValueError('请选择 Agent 管理中已保存且不重复的 Agent。')
-        seen.add(aid);agent=library[aid]
+        mid=member_id(item.get('id',aid))
+        if aid not in library: raise ValueError('请选择 Agent 管理中已保存的 Agent。')
+        if mid in seen: raise ValueError('协作室成员实例标识重复。')
+        seen.add(mid);agent=library[aid]
         model=model_id(item.get('model',agent['model']));effort=effort_id(item.get('effort',agent['effort']))
         ref=dict(agent_id=aid,model=model,effort=effort,enabled=bool(item.get('enabled',True)))
+        # Preserve legacy references and their message/session identities unchanged.
+        if 'id' in item:ref['id']=mid
+        if 'name' in item:
+            name=item['name']
+            if not isinstance(name,str) or not 1<=len(name.strip())<=40:raise ValueError('成员名称需要 1 至 40 字符。')
+            ref['name']=name.strip()
         refs.append(ref)
-        if ref['enabled']: members.append({**agent,'agent_id':aid,'model':model,'effort':effort})
+        if ref['enabled']: members.append({**agent,'id':mid,'agent_id':aid,'name':ref.get('name',agent['name']),'model':model,'effort':effort})
     if len(members)>20: raise ValueError('当前团队最多启用 20 位成员。')
     return refs,members
 
@@ -252,7 +265,7 @@ def save_member_key(mid,value):
 
 
 def get_member_key(member):
-    mid=member_id(member['id']);path=STATE/'credentials'/(mid+'.dpapi')
+    mid=member_id(member.get('agent_id',member['id']));path=STATE/'credentials'/(mid+'.dpapi')
     if path.exists():
         import win32crypt
         return win32crypt.CryptUnprotectData(path.read_bytes(),None,None,None,0)[1].decode()

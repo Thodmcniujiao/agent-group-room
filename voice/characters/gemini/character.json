@@ -1,0 +1,21 @@
+{
+  "id": "gemini",
+  "name": "Gemini 娘",
+  "archetype": "元气极客 / 双子灵动 / 活力 JK",
+  "description": "思维跳脱、活力四射的科技感少女，语调轻快灵动、中高音明亮，充满好奇心与探索欲。",
+  "tags": ["元气", "灵动", "科技感", "JK音"],
+  "default_quote": "快看快看！我又发现了一个超级酷炫的新点子！要不要现在就和我一起动手试试看？",
+  "edge_tts": {
+    "voice": "zh-CN-XiaoyiNeural",
+    "rate": "+8%",
+    "pitch": "+8Hz",
+    "volume": "+0%"
+  },
+  "gpt_sovits": {
+    "sovits_path": "models/gemini_sovits.pth",
+    "gpt_path": "models/gemini_gpt.ckpt",
+    "ref_audio": "characters/gemini/reference.wav",
+    "prompt_text": "快看快看！我又发现了一个超棒的新点子！",
+    "prompt_lang": "zh"
+  }
+}

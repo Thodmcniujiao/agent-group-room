@@ -1,0 +1,51 @@
+{
+  "checks": [
+    {
+      "name": "git_host",
+      "ok": true,
+      "detail": "C:/Users/Thodmc/OneDrive/Desktop/New folder",
+      "env": {
+        "name": "git_host",
+        "version": 1
+      }
+    },
+    {
+      "name": "git_executor",
+      "ok": true,
+      "detail": "C:/Users/Thodmc/OneDrive/Desktop/New folder",
+      "env": {
+        "name": "git_executor",
+        "version": 1
+      }
+    },
+    {
+      "name": "quota",
+      "ok": true,
+      "detail": "无可用读数，额度未知",
+      "env": {
+        "name": "account",
+        "version": 1
+      }
+    },
+    {
+      "name": "executor_start",
+      "ok": true,
+      "detail": "实际执行配置加载成功；output=16384",
+      "env": {
+        "name": "mcp",
+        "version": 1
+      }
+    },
+    {
+      "name": "recovery",
+      "ok": true,
+      "detail": "无待核实写入",
+      "env": {
+        "name": "mcp",
+        "version": 1
+      }
+    }
+  ],
+  "passed": true,
+  "model_calls": 0
+}

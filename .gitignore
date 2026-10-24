@@ -19,6 +19,11 @@ dist/
 *.jsonl
 preferences.json
 service.json
+test-reports/**/state/
+test-reports/**/live-state/
+test-reports/summary-roadmap-2026-10-22/ui-state*/
+test-reports/optimization-help-2026-10-22/ui-state*/
+test-reports/collaboration-log-2026-10-22/ui-state*/
 credentials/
 .tiered/
 .deepseek-mcp/
@@ -30,5 +35,21 @@ backups/
 gui/preview-*.png
 gui/connection-check/
 Thumbs.db
+work/
 Desktop.ini
 *.lnk
+test-reports/execution-host-routing-2026-10-22/ui-state*/
+# Optional voice engines, downloaded models and local recordings
+voice/GPT-SoVITS/
+voice/GPT-SoVITS-Engine/
+voice/*.7z
+voice/models/
+voice/output/
+voice/dataset/*
+!voice/dataset/README.md
+# Generated exports and editor backups
+output/
+*.bak
+node_modules/
+# Raw local process inventory captured during acceptance diagnostics
+test-reports/token-optimization-2026-10-22/acceptance/scope-violation-probe.cmd.txt

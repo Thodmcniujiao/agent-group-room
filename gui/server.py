@@ -27,6 +27,8 @@ from account_usage import UsageMonitor
 from logins import Logins
 from room_settings import RoomSettings
 from avatars import Avatars
+from display_settings import DisplaySettings
+from version import VERSION
 
 STATE=Path(os.environ.get('TIERED_GUI_DATA_DIR',str(preferences.STATE/'gui')))
 STORE=Store(STATE)
@@ -40,6 +42,7 @@ MODELS=shared_catalog()
 DEBUG=AgentDebugger()
 USAGE=UsageMonitor()
 AVATARS=Avatars(preferences.STATE/'avatars.json')
+DISPLAY=DisplaySettings(preferences.STATE/'display.json')
 WORK.usage=USAGE  # supervisor and members see the same account meters as the UI
 
 
@@ -56,11 +59,35 @@ async def bootstrap(request):
     selected=preferences.load();MODELS.request_refresh(selected);USAGE.request_refresh(selected)
     return JSONResponse({'token':TOKEN,'preferences':selected,'model_catalog':MODELS.snapshot(selected),
         'account_usage':USAGE.snapshot(selected),'connections':await roster.connections(selected),
-        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'avatars':AVATARS.snapshot(),'version':'0.11.0'})
+        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'avatars':AVATARS.snapshot(),'display':DISPLAY.snapshot(),'version':VERSION})
 
 
 async def health(request):
-    return JSONResponse({'service':'tiered-dev-gui','version':'0.11.0'})
+    return JSONResponse({'service':'tiered-dev-gui','version':VERSION,
+        'active_workflows':sum(not task.done() for task in WORK.running.values())})
+
+
+async def optimization_report(request):
+    from usage_report import report
+    from optimization_settings import experiment_status
+    rid=request.path_params['rid'];STORE.room(rid)
+    value=report(STORE.usage(rid),request.query_params.get('by','member'))
+    with STORE.lock:
+        value['outputs']=[dict(row) for row in STORE.db.execute('''SELECT a.id,a.kind,a.command,a.exit_code,length(a.text) AS characters,a.sha256,a.complete,a.created,
+            (SELECT count(*) FROM output_reads r WHERE r.output_id=a.id) AS retrievals
+            FROM output_archives a WHERE a.room=? ORDER BY a.rowid DESC LIMIT 50''',(rid,))]
+        value['summaries']=dict(STORE.db.execute('''SELECT count(*) AS count FROM message_summaries d JOIN messages m ON m.id=d.message_id WHERE m.room=?''',(rid,)).fetchone())
+    value['experiments']=experiment_status()
+    value['measurement']='投递、回取和服务商用量；不能证明模型理解或已实现净节省。'
+    return JSONResponse(value)
+
+
+async def output_content(request):
+    from output_archive import read
+    rid=request.path_params['rid'];STORE.room(rid)
+    result=read(STORE.db,STORE.lock,rid,'user','user',{'id':request.path_params['oid'],
+        'offset':int(request.query_params.get('offset','0')),'limit':int(request.query_params.get('limit','8000'))},user=True)
+    return JSONResponse(result)
 
 
 async def avatars(request):
@@ -70,6 +97,23 @@ async def avatars(request):
     body=await request.json()
     if not isinstance(body,dict) or set(body)!={'image'}:raise ValueError('头像设置格式无效。')
     return JSONResponse({'avatars':AVATARS.save(identity,body['image'])})
+
+
+async def display_settings(request):
+    return JSONResponse({'display':DISPLAY.save(await request.json()) if request.method=='POST' else DISPLAY.snapshot()})
+
+
+async def collaboration_logs(request):
+    rid=request.path_params['rid'];STORE.room(rid)
+    run=request.path_params.get('run_id');call=request.path_params.get('call_id')
+    if call:
+        path=STORE.logs.trace(rid,run,call)
+        if request.query_params.get('download')=='1':
+            return FileResponse(path,media_type='application/x-ndjson',filename='collaboration-'+run+'-'+call+'.jsonl',headers={'Cache-Control':'no-store'})
+        value=STORE.logs.page(path,int(request.query_params.get('offset','0')),int(request.query_params.get('limit','32000')))
+    elif run:value=STORE.logs.detail(rid,run)
+    else:value={**STORE.logs.list(rid),'logging_enabled':ROOMS.load(rid)['logging_enabled']}
+    return JSONResponse(value,headers={'Cache-Control':'no-store'})
 
 
 async def models(request):
@@ -105,7 +149,7 @@ async def connection_state(request):
     current=ROOMS.load(request.query_params['room_id'],selected) if request.query_params.get('room_id') else None
     return JSONResponse({'preferences':selected,'connections':await roster.connections(selected,
         refresh=request.query_params.get('refresh')=='1'),'logins':LOGIN.snapshot(),
-        'model_catalog':MODELS.snapshot(selected),'account_usage':USAGE.snapshot(selected),'room_settings':current})
+        'model_catalog':MODELS.snapshot(selected),'account_usage':USAGE.snapshot(selected),'room_settings':current,'avatars':AVATARS.snapshot()})
 
 
 async def room_configuration(request):
@@ -122,6 +166,19 @@ async def room_member(request):
         value=ROOMS.membership(rid,aid,body.get('enabled'))
     else:value=ROOMS.member(rid,aid,body)
     return JSONResponse({'room_settings':value})
+
+
+async def add_room_member(request):
+    body=await request.json()
+    if not isinstance(body,dict) or set(body)!={'agent_id'}:raise ValueError('请选择已保存的 Agent。')
+    return JSONResponse({'room_settings':ROOMS.add(request.path_params['rid'],body['agent_id'])})
+
+
+async def room_member_avatar(request):
+    rid=request.path_params['rid'];mid=request.path_params['mid'];body=await request.json()
+    ROOMS.reference(rid,mid)
+    if not isinstance(body,dict) or set(body)!={'image'}:raise ValueError('头像设置无效。')
+    return JSONResponse({'avatars':AVATARS.save(f'room:{rid}:{mid}',body['image'])})
 
 
 async def save_member(request):
@@ -178,7 +235,33 @@ async def debug_agent(request):
     if request.method=='GET':return JSONResponse({'jobs':DEBUG.history(agent['id'])})
     body=await request.json()
     if not isinstance(body,dict):raise ValueError('调试指令格式无效。')
+    if agent.get('google_billing'):
+        from google_billing import prepare
+        agent=await prepare(agent)
     return JSONResponse(DEBUG.start(agent,body))
+
+
+async def google_billing(request):
+    import google_billing as billing
+    if request.method=='POST':
+        body=await request.json()
+        if body.get('action')=='verify':
+            cfg=billing.config(body.get('config'))
+            info=await billing.verify_project(cfg,await billing.access_token())
+            return JSONResponse({'ok':True,'project':info,'adc':True})
+        if body.get('action')=='rotate':
+            with billing.LOCK:
+                data=billing.load();data.pop('pairing_token',None);billing.save(data)
+        else:raise ValueError('未知的 Google 结算操作。')
+    return JSONResponse({'pairing_token':billing.pairing(),'adc':billing.auth_available(),
+        'accounts':billing.load().get('accounts',{}),'extension_path':str(ROOT/'browser/google-billing-sync'),
+        'origin':ORIGIN},headers={'Cache-Control':'no-store'})
+
+
+async def google_billing_sync(request):
+    from google_billing import ingest
+    snapshot=ingest(await request.json())
+    return JSONResponse({'ok':True,'observed_at':snapshot['observed_at']})
 
 
 async def debug_cancel(request):
@@ -254,9 +337,55 @@ async def create_room(request):
 
 async def room(request):
     rid=request.path_params['rid']
-    return JSONResponse({'room':STORE.room(rid),'messages':STORE.messages(rid),
+    from approval_documents import ensure_pending,info,present_message
+    document=ensure_pending(STORE,rid,ROOMS.load(rid));messages=[present_message(STORE,rid,m) for m in STORE.messages(rid)]
+    return JSONResponse({'room':STORE.room(rid),'messages':messages,'approval_document':info(STORE,rid,document) if document else None,
         'policy':STORE.policy(rid,preferences.load()['cooperation_policy']),'room_settings':ROOMS.load(rid),
-        'context':STORE.deliveries(rid),'budget_wait':WORK.budget_gate.snapshot(rid)})
+        'context':STORE.deliveries(rid),'budget_wait':WORK.budget_gate.snapshot(rid),'avatars':AVATARS.snapshot()})
+
+
+async def recheck(request):
+    from preflight import RESUME_BUTTON
+    rid=request.path_params['rid'];state,_=STORE.load_workflow(rid)
+    if not state or not state.get('blocker'):raise ValueError('当前没有待复查的宿主环境阻断。')
+    WORK.start(rid,RESUME_BUTTON,'workflow','all',ROOMS.load(rid),source='button',action={'kind':'recheck'})
+    return JSONResponse({'status':'started'})
+
+
+async def approve(request):
+    rid=request.path_params['rid'];body=await request.json();state,_=STORE.load_workflow(rid)
+    if not state or not state.get('awaiting_approval') or body.get('plan_ref')!=state['awaiting_approval']:raise ValueError('此方案确认已过期，请查看当前版本。')
+    selected=ROOMS.load(rid)
+    from approval_documents import ensure_pending
+    document=ensure_pending(STORE,rid,selected)
+    if not document or body.get('document_id')!=document['id'] or body.get('document_sha256')!=document['document_sha256']:raise ValueError('请打开当前审批文档，核对后再批准。')
+    if STORE.policy(rid,selected['cooperation_policy'])['revision']!=document['data']['policy_revision']:raise ValueError('合作规则已更改，请让监工重新出具审批文档。')
+    WORK.start(rid,'','workflow','all',selected,source='button',action={'kind':'approve','plan_ref':state['awaiting_approval'],'document_id':document['id'],'document_sha256':document['document_sha256']})
+    return JSONResponse({'status':'queued' if STORE.room(rid)['status']=='queued' else 'started','approved':True})
+
+
+async def approval_document(request):
+    from approval_documents import info
+    rid=request.path_params['rid'];document=STORE.approval_document(rid,request.path_params['did'])
+    return JSONResponse(info(STORE,rid,document))
+
+
+async def approval_document_content(request):
+    from approval_documents import render,markdown
+    rid=request.path_params['rid'];document=STORE.approval_document(rid,request.path_params['did'])
+    if request.query_params.get('format','html') not in ['html','md']:raise ValueError('不支持的文档格式。')
+    md=request.query_params.get('format')=='md';extension='md' if md else 'html'
+    filename='approval-'+document['plan_ref'].replace('@','-v')+'.'+extension
+    disposition='attachment' if md or request.query_params.get('download')=='1' else 'inline'
+    return Response(markdown(document) if md else render(document),media_type='text/markdown' if md else 'text/html',
+        headers={'Content-Disposition':disposition+'; filename="'+filename+'"','Cache-Control':'no-store'})
+
+
+async def workflow_audit(request):
+    rid=request.path_params['rid'];STORE.room(rid)
+    with STORE.lock:
+        raw=[dict(r) for r in STORE.db.execute('SELECT * FROM raw_responses WHERE room=? ORDER BY created',(rid,))]
+    return JSONResponse({'workflow':STORE.load_workflow(rid)[0],'usage':STORE.usage(rid),'usage_summary':STORE.usage_summary(rid),'raw_responses':raw,'approvals':STORE.approvals(rid),'host_actions':STORE.host_actions(rid)})
 
 
 async def policy(request):
@@ -328,11 +457,18 @@ async def events(request):
     after=max(int(request.query_params.get('after','0')),int(request.headers.get('last-event-id','0')))
     async def generate():
         nonlocal after
+        live_after=0
         while not await request.is_disconnected():
             batch=STORE.events(rid,after)
             for value in batch:
                 after=value['seq']
+                if value.get('type')=='message':
+                    from approval_documents import present_message
+                    value={**value,'message':present_message(STORE,rid,value['message'])}
                 yield 'id: '+str(after)+'\ndata: '+json.dumps(value,ensure_ascii=False)+'\n\n'
+            for seq,value in STORE.live(rid,live_after):
+                live_after=max(live_after,seq)
+                yield 'data: '+json.dumps(value,ensure_ascii=False)+'\n\n'
             if not batch: yield ': heartbeat\n\n'
             await asyncio.sleep(0.45)
     return StreamingResponse(generate(),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
@@ -342,6 +478,8 @@ async def export(request):
     rid=request.path_params['rid'];value=STORE.room(rid)
     text='# '+value['title']+'\n\n项目：'+value['project']+'\n'
     labels={**preferences.load()['member_names'],'you':'你','system':'系统','supervisor':'监工'}
+    for ref in ROOMS.load(rid)['team']:
+        labels[ref.get('id',ref['agent_id'])]=ref.get('name',labels.get(ref['agent_id'],ref['agent_id']))
     for message in STORE.messages(rid):
         text+='\n## '+labels.get(message['provider'],message['provider'])
         text+=' · '+message['model']+' · '+message['phase']+'\n\n'+message['text']+'\n'
@@ -408,6 +546,17 @@ async def lifespan(app):
 
 
 routes=[Route('/',lambda request:FileResponse(WEB/'index.html')),
+    Route('/api/google-billing',google_billing,methods=['GET','POST']),
+    Route('/api/google-billing/sync',google_billing_sync,methods=['POST']),
+    Route('/api/display',display_settings,methods=['GET','POST']),
+    Route('/api/rooms/{rid}/logs',collaboration_logs),
+    Route('/api/rooms/{rid}/logs/{run_id}',collaboration_logs),
+    Route('/api/rooms/{rid}/logs/{run_id}/{call_id}',collaboration_logs),
+    Route('/api/rooms/{rid}/optimization-report',optimization_report),
+    Route('/api/rooms/{rid}/outputs/{oid}',output_content),
+    Route('/api/rooms/{rid}/recheck',recheck,methods=['POST']),
+    Route('/api/rooms/{rid}/approve',approve,methods=['POST']),
+    Route('/api/rooms/{rid}/workflow-audit',workflow_audit),
     Route('/api/avatars',avatars),Route('/api/avatars/{mid}',avatars,methods=['POST']),
     Route('/api/rooms/{rid}/force-budget',force_budget,methods=['POST']),
     Route('/api/health',health),Route('/api/bootstrap',bootstrap),Route('/api/models',models,methods=['GET','POST']),
@@ -424,12 +573,16 @@ routes=[Route('/',lambda request:FileResponse(WEB/'index.html')),
     Route('/api/login/{provider}',login,methods=['POST']),Route('/api/folder',folder,methods=['POST']),
     Route('/api/rooms',create_room,methods=['POST']),Route('/api/rooms/{rid}',room),
     Route('/api/rooms/{rid}/configuration',room_configuration,methods=['GET','POST']),
+    Route('/api/rooms/{rid}/members',add_room_member,methods=['POST']),
+    Route('/api/rooms/{rid}/members/{mid}/avatar',room_member_avatar,methods=['POST']),
     Route('/api/rooms/{rid}/members/{mid}/membership',room_member,methods=['POST']),
     Route('/api/rooms/{rid}/members/{mid}',room_member,methods=['POST']),
     Route('/api/rooms/{rid}/policy',policy,methods=['POST']),
     Route('/api/rooms/{rid}/send',send,methods=['POST']),Route('/api/rooms/{rid}/stop',stop,methods=['POST']),
     Route('/api/rooms/{rid}/resume',resume,methods=['POST']),Route('/api/rooms/{rid}/events',events),
     Route('/api/rooms/{rid}/export',export),Route('/api/rooms/{rid}/recovery',recovery,methods=['POST']),
+    Route('/api/rooms/{rid}/approval-documents/{did}',approval_document),
+    Route('/api/rooms/{rid}/approval-documents/{did}/content',approval_document_content),
     Route('/api/rooms/{rid}/artifacts',artifacts),
     Mount('/assets',StaticFiles(directory=WEB),name='assets')]
 app=Starlette(routes=routes,lifespan=lifespan)
@@ -440,6 +593,16 @@ async def protect(request,call_next):
     if host not in [f'127.0.0.1:{PORT}',f'localhost:{PORT}']:
         return JSONResponse({'error':'Invalid host'},status_code=403)
     origin=request.headers.get('origin')
+    # The companion gets one write-only endpoint; it cannot bootstrap or read keys.
+    if request.url.path=='/api/google-billing/sync':
+        from google_billing import paired
+        if request.method!='POST' or not paired(request.headers.get('x-google-billing-token')):
+            return JSONResponse({'error':'余额同步配对失败。'},status_code=403)
+        if origin and not (origin.startswith('chrome-extension://') or origin.startswith('moz-extension://')):
+            return JSONResponse({'error':'余额同步来源无效。'},status_code=403)
+        if int(request.headers.get('content-length','0'))>100000:return JSONResponse({'error':'请求过大。'},status_code=413)
+        try:return await call_next(request)
+        except (ValueError,TypeError,KeyError) as exc:return JSONResponse({'error':str(exc)[:500]},status_code=400)
     if origin and origin not in [ORIGIN,f'http://localhost:{PORT}']:
         return JSONResponse({'error':'Origin denied'},status_code=403)
     if request.method=='POST':
@@ -458,6 +621,8 @@ async def protect(request,call_next):
         response.headers['Cache-Control']='no-cache'
     response.headers['Referrer-Policy']='no-referrer'
     response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    if '/approval-documents/' in request.url.path and request.url.path.endswith('/content'):
+        response.headers['Content-Security-Policy']="default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
     return response
 
 app.add_middleware(BaseHTTPMiddleware,dispatch=protect)

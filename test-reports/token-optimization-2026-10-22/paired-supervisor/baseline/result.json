@@ -1,0 +1,167 @@
+{
+  "variant": "baseline",
+  "role": "supervisor",
+  "adapter": "openai-compatible",
+  "model": "models/gemini-3.8-flash",
+  "effort": "high",
+  "turns": [
+    {
+      "index": 0,
+      "action": "wait",
+      "host_input_characters": 3481,
+      "delivery": "8e5a3c4d41dc4a789fc1faee2904b0d6"
+    },
+    {
+      "index": 1,
+      "action": "wait",
+      "host_input_characters": 3721,
+      "delivery": "6944a1c937c44a2a82db100fb01fdaa3"
+    },
+    {
+      "index": 2,
+      "action": "wait",
+      "host_input_characters": 3872,
+      "delivery": "031dee0f373d415bb5b58382e731310d"
+    },
+    {
+      "index": 3,
+      "action": "wait",
+      "host_input_characters": 4023,
+      "delivery": "5e21c7ca56e24bdc93b8ed987d58402a"
+    },
+    {
+      "index": 4,
+      "action": "wait",
+      "host_input_characters": 4174,
+      "delivery": "19fb9fa5a4be476cbd7f26fa40ef5bfe"
+    }
+  ],
+  "passed": true,
+  "usage": [
+    {
+      "id": 1,
+      "room": "9dfc532a48e447a79b33408a06018f5c",
+      "identity": "supervisor",
+      "role": "supervisor",
+      "session_key": "5b407ecc4570daa516cb02db9efe750f24424eeab070f1bed75946b7d390931d",
+      "branch": "4bf079ca15da44efb7c3078e639e2f1c",
+      "adapter": "gemini",
+      "model": "models/gemini-3.8-flash",
+      "request_ref": "add6b09deb7c492a9b92b6e8df85100c",
+      "input": 2234,
+      "cached_read": 0,
+      "cache_write": null,
+      "output": 703,
+      "reasoning": 521,
+      "status": "complete",
+      "composition": "{\"state\": 3180, \"instructions\": 160, \"originals\": 125, \"tools\": 439, \"contract\": 0, \"unattributed\": -1670, \"host_estimate\": 3904}",
+      "created": "2026-10-22T00:29:05.920335+00:00"
+    },
+    {
+      "id": 2,
+      "room": "9dfc532a48e447a79b33408a06018f5c",
+      "identity": "supervisor",
+      "role": "supervisor",
+      "session_key": "5b407ecc4570daa516cb02db9efe750f24424eeab070f1bed75946b7d390931d",
+      "branch": "4bf079ca15da44efb7c3078e639e2f1c",
+      "adapter": "gemini",
+      "model": "models/gemini-3.8-flash",
+      "request_ref": "e7ee7b5c9890475bab9d7bd7dca5e0f3",
+      "input": 4707,
+      "cached_read": 0,
+      "cache_write": null,
+      "output": 401,
+      "reasoning": 229,
+      "status": "complete",
+      "composition": "{\"state\": 3350, \"instructions\": 160, \"originals\": 1, \"tools\": 439, \"contract\": 0, \"unattributed\": 757, \"host_estimate\": 3950}",
+      "created": "2026-10-22T00:29:10.186790+00:00"
+    },
+    {
+      "id": 3,
+      "room": "9dfc532a48e447a79b33408a06018f5c",
+      "identity": "supervisor",
+      "role": "supervisor",
+      "session_key": "5b407ecc4570daa516cb02db9efe750f24424eeab070f1bed75946b7d390931d",
+      "branch": "4bf079ca15da44efb7c3078e639e2f1c",
+      "adapter": "gemini",
+      "model": "models/gemini-3.8-flash",
+      "request_ref": "b96283b7f7c64919a714dcb7bea0e2db",
+      "input": 6929,
+      "cached_read": 0,
+      "cache_write": null,
+      "output": 246,
+      "reasoning": 74,
+      "status": "complete",
+      "composition": "{\"state\": 3425, \"instructions\": 160, \"originals\": 1, \"tools\": 439, \"contract\": 0, \"unattributed\": 2904, \"host_estimate\": 4025}",
+      "created": "2026-10-22T00:29:13.283074+00:00"
+    },
+    {
+      "id": 4,
+      "room": "9dfc532a48e447a79b33408a06018f5c",
+      "identity": "supervisor",
+      "role": "supervisor",
+      "session_key": "5b407ecc4570daa516cb02db9efe750f24424eeab070f1bed75946b7d390931d",
+      "branch": "4bf079ca15da44efb7c3078e639e2f1c",
+      "adapter": "gemini",
+      "model": "models/gemini-3.8-flash",
+      "request_ref": "2a092735a48b49e692ee354bd393959d",
+      "input": 9047,
+      "cached_read": 0,
+      "cache_write": null,
+      "output": 257,
+      "reasoning": 83,
+      "status": "complete",
+      "composition": "{\"state\": 3501, \"instructions\": 160, \"originals\": 1, \"tools\": 439, \"contract\": 0, \"unattributed\": 4946, \"host_estimate\": 4101}",
+      "created": "2026-10-22T00:29:16.565867+00:00"
+    },
+    {
+      "id": 5,
+      "room": "9dfc532a48e447a79b33408a06018f5c",
+      "identity": "supervisor",
+      "role": "supervisor",
+      "session_key": "5b407ecc4570daa516cb02db9efe750f24424eeab070f1bed75946b7d390931d",
+      "branch": "4bf079ca15da44efb7c3078e639e2f1c",
+      "adapter": "gemini",
+      "model": "models/gemini-3.8-flash",
+      "request_ref": "10e5d1339551477eb257c15b2cebd4bf",
+      "input": 11227,
+      "cached_read": 0,
+      "cache_write": null,
+      "output": 249,
+      "reasoning": 75,
+      "status": "complete",
+      "composition": "{\"state\": 3576, \"instructions\": 160, \"originals\": 1, \"tools\": 439, \"contract\": 0, \"unattributed\": 7051, \"host_estimate\": 4176}",
+      "created": "2026-10-22T00:29:20.439083+00:00"
+    }
+  ],
+  "summary": [
+    {
+      "role": "supervisor",
+      "adapter": "gemini",
+      "requests": 5,
+      "no_effect_requests": 0,
+      "tokens": {
+        "input": {
+          "known_sum": 34144,
+          "unknown_requests": 0
+        },
+        "cached_read": {
+          "known_sum": 0,
+          "unknown_requests": 0
+        },
+        "cache_write": {
+          "known_sum": null,
+          "unknown_requests": 5
+        },
+        "output": {
+          "known_sum": 1856,
+          "unknown_requests": 0
+        },
+        "reasoning": {
+          "known_sum": 982,
+          "unknown_requests": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "Agent Group Room · Google 余额同步",
+  "version": "0.2.0",
+  "description": "读取已登录 Google 账单页上的赠金和预付余额，只向配对的本机 Agent Group Room 同步。",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "https://console.cloud.google.com/billing/*",
+    "https://aistudio.google.com/billing*",
+    "https://payments.google.com/payments/*/embedded_landing_page*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://console.cloud.google.com/billing/*/credits*",
+        "https://aistudio.google.com/billing*"
+      ],
+      "js": [
+        "reader.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://payments.google.com/payments/*/embedded_landing_page*"
+      ],
+      "js": [
+        "reader.js",
+        "content.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://127.0.0.1/*"
+      ],
+      "include_globs": [
+        "http://127.0.0.1:*/assets/google-billing.html"
+      ],
+      "js": [
+        "pair.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

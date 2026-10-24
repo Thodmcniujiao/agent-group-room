@@ -1,0 +1,28 @@
+{
+  "version": "0.14.0",
+  "checks": {
+    "default_on": true,
+    "independent_switch": true,
+    "inclusive_usage": true,
+    "unicode_roundtrip": true,
+    "download_private": true,
+    "cross_room_denied": true,
+    "invalid_page_denied": true,
+    "invalid_log_id_denied": true,
+    "avatar_default": true,
+    "display_csrf": true,
+    "display_invalid_type": true,
+    "display_persists": true,
+    "images_unchanged": true
+  },
+  "passed": true,
+  "unicode_pages": 46,
+  "events_sha256": "d48aff3588ef0a9e664b31055669add8fabbef95d466aecb9571a1b531d8e09e",
+  "live_model_calls": false,
+  "fixture": "ui-state-final",
+  "download_headers": {
+    "cache-control": "no-store",
+    "content-disposition": "attachment; filename=\"collaboration-f1e10a064b7c48adb5be7d61ff5746f0-events.jsonl\"",
+    "content-type": "application/x-ndjson"
+  }
+}

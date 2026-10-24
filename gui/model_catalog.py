@@ -18,6 +18,7 @@ def now():
 
 
 def provider_for(agent):
+    if agent.get('google_billing'):return 'gemini'
     if agent['backend'] in ['chatgpt','claude','deepseek']:return agent['backend']
     host=urlsplit(agent.get('base_url','')).hostname
     return {'api.openai.com':'openai','api.anthropic.com':'claude-api',
@@ -32,6 +33,10 @@ def connection_context(agent):
     else:
         key=preferences.get_member_key(agent)
         identity=['api',agent['base_url'],key,bool(agent.get('no_auth'))]
+        if agent.get('google_billing'):
+            from google_billing import adc_path
+            path=adc_path()
+            identity.extend([agent['google_billing'],agent.get('_google_route'),str(path),path.stat().st_mtime_ns if path.exists() else None])
     return hashlib.sha256(json.dumps(identity).encode()).hexdigest(),key
 
 
@@ -73,6 +78,24 @@ async def discover(agent, key):
     backend=agent['backend']
     if backend=='chatgpt':return await chatgpt_catalog()
     if backend=='claude':return await claude_catalog()
+    cfg=agent.get('google_billing')
+    if cfg and (cfg['mode']=='vertex' or cfg['mode']=='auto' and __import__('google_billing').auth_available()):
+        from google_billing import access_token,auth_headers
+        token=await access_token();result=[];cursor=None
+        async with httpx.AsyncClient(timeout=18) as client:
+            for _ in range(10):
+                r=await client.get('https://aiplatform.googleapis.com/v1beta1/publishers/google/models',
+                    headers=auth_headers(token,cfg['project']),params={'pageSize':100,**({'pageToken':cursor} if cursor else {})})
+                if r.is_error:
+                    error=RuntimeError('Vertex model directory failed');error.status_code=r.status_code;raise error
+                data=r.json()
+                for model in data.get('publisherModels',[]):
+                    mid=model.get('name','').split('/models/')[-1]
+                    if mid.startswith('gemini-'):result.append({'id':mid,'label':model.get('displayName') or mid})
+                following=data.get('nextPageToken')
+                if not following or following==cursor:break
+                cursor=following
+        return result
     if provider_for(agent)=='claude-api':
         result=[];cursor=None;base=agent['base_url'].rstrip('/')
         if not base.endswith('/v1'):base+='/v1'
@@ -120,6 +143,9 @@ class ModelCatalog:
             attempt=self.attempts.get(fingerprint,{})
             loading=fingerprint in self.tasks and not self.tasks[fingerprint].done()
             missing=agent['backend'] not in ['chatgpt','claude'] and not key and not agent.get('no_auth')
+            if agent.get('google_billing',{}).get('mode') in ['vertex','auto']:
+                from google_billing import auth_available
+                missing=not auth_available() and not key
             state='loading' if loading else attempt.get('state','idle')
             if missing:state='unconfigured'
             source={'chatgpt':'ChatGPT CLI 模型目录','claude':'Claude CLI 模型目录'}.get(agent['backend'],'API 模型目录')
@@ -139,7 +165,9 @@ class ModelCatalog:
             fingerprint,key=self.context(agent)
             if fingerprint in self.tasks and not self.tasks[fingerprint].done():
                 requested.append(self.tasks[fingerprint]);continue
-            if agent['backend'] not in ['chatgpt','claude'] and not key and not agent.get('no_auth'):continue
+            if agent['backend'] not in ['chatgpt','claude'] and not key and not agent.get('no_auth'):
+                from google_billing import auth_available
+                if agent.get('google_billing',{}).get('mode') not in ['vertex','auto'] or not auth_available():continue
             self.attempts[fingerprint]={'state':'loading','checked':now(),'error':''}
             task=asyncio.create_task(self.fetch(fingerprint,agent.copy(),key))
             self.tasks[fingerprint]=task;requested.append(task)

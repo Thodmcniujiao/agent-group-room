@@ -1,0 +1,46 @@
+{
+  "previous_version": "0.13.0",
+  "expected_version": "0.14.0",
+  "backup_file": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\gui\\backups\\before-collaboration-log-20261022T183116Z.sqlite3",
+  "backup_integrity": "ok",
+  "final_tests_run": 245,
+  "sources_verified": true,
+  "deploy_started": "2026-10-22T18:31:16.949588+00:00",
+  "health": {
+    "service": "tiered-dev-gui",
+    "version": "0.14.0",
+    "active_workflows": 0
+  },
+  "counts_before": {
+    "rooms": 6,
+    "messages": 152,
+    "plans": 1,
+    "approvals": 3,
+    "usage_records": 27
+  },
+  "counts_after": {
+    "rooms": 6,
+    "messages": 152,
+    "plans": 1,
+    "approvals": 3,
+    "usage_records": 27
+  },
+  "counts_unchanged": true,
+  "room_configuration_unchanged": true,
+  "integrity_check": "ok",
+  "existing_rooms_log_default_on": true,
+  "existing_rooms_checked": 6,
+  "new_log_runs_created": 0,
+  "display": {
+    "chat_avatar_size": 32
+  },
+  "served_sources_match": {
+    "gui/web/app.js": true,
+    "gui/web/avatars.js": true,
+    "gui/web/collaboration-logs.js": true,
+    "gui/web/collaboration-logs.css": true,
+    "gui/web/index.html": true
+  },
+  "final_sources_unchanged": true,
+  "passed": true
+}

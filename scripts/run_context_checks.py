@@ -4,9 +4,11 @@ from datetime import datetime,timezone
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -24,6 +26,9 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--report-dir',default='test-reports/context-2026-10-21')
     args=parser.parse_args();output=(ROOT/args.report_dir).resolve();output.mkdir(parents=True,exist_ok=True)
     logging.disable(logging.CRITICAL);sys.path[:0]=[str(ROOT/'gui')]
+    # Importing server initializes its Store. Never aim a regression run at real rooms.
+    isolated=tempfile.TemporaryDirectory(prefix='agent-room-regression-')
+    previous=os.environ.get('TIERED_GUI_DATA_DIR');os.environ['TIERED_GUI_DATA_DIR']=isolated.name
     suite=unittest.TestSuite([unittest.defaultTestLoader.discover(str(ROOT/'gui'),pattern='test_*.py'),
         unittest.defaultTestLoader.discover(str(ROOT/'scripts'),pattern='test_deployment.py',top_level_dir=str(ROOT/'scripts'))])
     try:
@@ -31,6 +36,9 @@ def main():
             result=unittest.TextTestRunner(stream=stream,verbosity=2,resultclass=Result).run(suite)
     finally:
         if 'server' in sys.modules:sys.modules['server'].STORE.db.close()
+        if previous is None:os.environ.pop('TIERED_GUI_DATA_DIR',None)
+        else:os.environ['TIERED_GUI_DATA_DIR']=previous
+        isolated.cleanup()
     files=[p for folder in ['gui','scripts','plugins/tiered-dev/scripts'] for p in (ROOT/folder).rglob('*')
         if p.is_file() and '__pycache__' not in p.parts and p.suffix in ['.py','.js','.html','.css']]
     manifest={str(p.relative_to(ROOT)).replace('\\','/'):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}

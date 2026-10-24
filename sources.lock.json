@@ -1,4 +1,11 @@
 {
+  "tzdata": {
+    "version": "2026.5",
+    "installed": true,
+    "repository": "https://github.com/python/tzdata",
+    "wheel_sha256": "b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac",
+    "note": "IANA timezone data for Europe/London day reports on Windows; official PyPI wheel verified before installation"
+  },
   "deepseek-as-subagent": {
     "commit": "7e54026392f85ccfc796f947faf9ffac3968a49e",
     "installed": true,

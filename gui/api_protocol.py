@@ -43,8 +43,10 @@ def gemini_response(data):
     message={'role':'assistant','content':'\n'.join(texts),'_gemini_steps':steps}
     if calls:message['tool_calls']=calls
     u=data.get('usage',{})
-    usage={'prompt_tokens':u.get('total_input_tokens',0),
-        'completion_tokens':u.get('total_output_tokens',0)+u.get('total_thought_tokens',0)}
+    usage={}
+    if isinstance(u.get('total_input_tokens'),int):usage['prompt_tokens']=u['total_input_tokens']
+    if isinstance(u.get('total_output_tokens'),int) and isinstance(u.get('total_thought_tokens'),int):
+        usage['completion_tokens']=u['total_output_tokens']+u['total_thought_tokens']
     return {'choices':[{'message':message,'finish_reason':'tool_calls' if calls else 'stop'}],
         'usage':usage,'gemini_usage':u}
 

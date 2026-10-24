@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "version",
+      "passed": true
+    },
+    {
+      "name": "room isolation and persisted defaults",
+      "passed": true
+    },
+    {
+      "name": "all nine research gates reject enable atomically",
+      "passed": true
+    },
+    {
+      "name": "master off persists and advances branch epoch",
+      "passed": true
+    },
+    {
+      "name": "master on restores independent options",
+      "passed": true
+    },
+    {
+      "name": "six report views and inclusive cache accounting",
+      "passed": true
+    },
+    {
+      "name": "invalid grouping rejected",
+      "passed": true
+    },
+    {
+      "name": "all output pages restore the archive hash and real exit status",
+      "passed": true
+    },
+    {
+      "name": "cross-room and oversized reads rejected",
+      "passed": true
+    }
+  ],
+  "output_pages": 4,
+  "live_model_calls": false
+}

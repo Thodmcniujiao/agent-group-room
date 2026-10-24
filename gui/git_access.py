@@ -15,9 +15,11 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+import weakref
 
 HIDDEN=0x08000000 if os.name=='nt' else 0
 OUTPUT_LIMIT=40000
+_INIT_LOCKS=weakref.WeakValueDictionary()
 READ_ONLY={'status','diff','log','show','rev-parse','ls-files','blame','branch','describe'}
 BRANCH_FLAGS={'--show-current','-a','--all','-r','--remotes','-v','-vv','--list','--no-color'}
 BLOCKED_PREFIXES=('--output','--no-index','--ext-diff','--textconv','--contents','--open-files-in-pager',
@@ -138,6 +140,49 @@ async def run_host(root,*args,state_dir,timeout=20):
     return out.decode('utf-8',errors='replace')
 
 
+def _assert_no_repository_metadata(root):
+    """An invalid/inaccessible repository is never permission to reinitialize it."""
+    for folder in (root,*root.parents):
+        try:(folder/'.git').lstat()
+        except FileNotFoundError:pass
+        else:raise GitError('发现已有 .git 元数据，宿主未重新初始化：'+str(folder/'.git'))
+        # Also avoid nesting a new repository inside a bare repository.
+        try:
+            (folder/'HEAD').lstat();(folder/'objects').lstat();(folder/'refs').lstat()
+        except FileNotFoundError:continue
+        raise GitError('发现已有裸仓库元数据，宿主未重新初始化：'+str(folder))
+
+
+async def ensure_repository(root,*,state_dir):
+    """Prepare only the host-selected project; never commit or alter existing repos.
+
+    The model-facing Git tool remains read-only. Serialize preparation so queued
+    workflows cannot both initialize the same project or race our config writes.
+    """
+    from review_server import project_path
+    root=project_path(root)
+    key=os.path.normcase(str(root))
+    lock=_INIT_LOCKS.setdefault(key,asyncio.Lock())
+    async with lock:
+        try:
+            top=await run_host(root,'rev-parse','--show-toplevel',state_dir=state_dir)
+            return {'root':top.strip(),'initialized':False}
+        except GitError as exc:
+            error=exc.stderr.lower()
+            missing=exc.code==128 and any(text in error for text in (
+                'not a git repository (or any of the parent directories)',
+                'not a git repository (or any parent up to mount point'))
+            if not missing:raise
+        _assert_no_repository_metadata(root)
+        # No inherited GIT_DIR/WORK_TREE (run_host strips them), and no user
+        # template hooks or files copied into this newly created repository.
+        await run_host(root,'-c','core.bare=false','init','--quiet','--template=','--',str(root),state_dir=state_dir)
+        top=(await run_host(root,'rev-parse','--show-toplevel',state_dir=state_dir)).strip()
+        if Path(top).resolve()!=root:
+            raise GitError('初始化后的仓库根目录与所选项目不一致：'+top)
+        return {'root':top,'initialized':True}
+
+
 def validate_args(args):
     if not isinstance(args,list) or not 1<=len(args)<=40 or not all(isinstance(a,str) and a and '\x00' not in a and len(a)<=1000 for a in args):
         raise ValueError('args 必须是 1 至 40 个非空字符串。')
@@ -158,7 +203,7 @@ def validate_args(args):
     return command,rest
 
 
-def run_readonly(root,args,config_path,timeout=30):
+def run_readonly(root,args,config_path,timeout=30,output_presenter=None):
     """Executor-facing Git tool. Returns text with the real exit code; never raises for Git failures."""
     try:command,rest=validate_args(args)
     except ValueError as exc:return 'ERROR: '+str(exc)
@@ -174,5 +219,9 @@ def run_readonly(root,args,config_path,timeout=30):
     text=f'$ git {command} '+' '.join(rest)+f'\nexit_code: {result.returncode}\n'+out
     if err.strip():text+='\n--- stderr ---\n'+err
     if result.returncode:text+='\n--- 说明 ---\n'+explain(err,root)
+    if output_presenter:return output_presenter('git '+' '.join(args),result.returncode,text)
+    if os.environ.get('ROOM_OUTPUT_PREVIEW') and os.environ.get('ROOM_DATABASE'):
+        from output_archive import present_environment
+        return present_environment('git '+' '.join(args),result.returncode,text,'git')
     if len(text)>OUTPUT_LIMIT:text=text[:OUTPUT_LIMIT]+'\n... [输出已截断]'
     return text

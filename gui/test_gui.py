@@ -84,6 +84,49 @@ class ModelAndPolicyTests(unittest.TestCase):
 
 
 class ApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_room_instance_api_isolates_aliases_avatars_and_dispatch(self):
+        from avatars import Avatars
+        png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKZkAAAAASUVORK5CYII='
+        headers={'X-Tiered-Token':server.TOKEN}
+        preferences.save({});original=preferences.PREFS.read_bytes()
+        with tempfile.TemporaryDirectory(dir=TEST_HOME.name) as folder,patch.object(server,'AVATARS',Avatars(Path(folder)/'avatars.json')):
+            rid=(await self.client.post('/api/rooms',json={'project':folder},headers=headers)).json()['id']
+            base='/api/rooms/'+rid+'/members'
+            self.assertEqual((await self.client.post(base,json={'agent_id':'chatgpt'})).status_code,403)
+            replies=await asyncio.gather(*(self.client.post(base,json={'agent_id':'chatgpt'},headers=headers) for _ in range(2)))
+            self.assertTrue(all(r.status_code==200 for r in replies))
+            selected=(await self.client.get('/api/rooms/'+rid)).json()['room_settings']
+            a,b=selected['members'];self.assertNotEqual(a['id'],b['id'])
+            self.assertTrue((await roster.connections(selected))[a['id']]['ready'])
+            response=await self.client.post(base+'/'+a['id'],json={'name':'方案设计师'},headers=headers)
+            self.assertEqual(response.status_code,200,response.text)
+            self.assertEqual(response.json()['room_settings']['members'][1],b)
+            avatar_url=base+'/'+a['id']+'/avatar'
+            self.assertEqual((await self.client.post(avatar_url,json={'image':png})).status_code,403)
+            response=await self.client.post(avatar_url,json={'image':png},headers=headers)
+            self.assertEqual(response.status_code,200,response.text)
+            key='room:'+rid+':'+a['id']
+            self.assertEqual(response.json()['avatars'],{key:png})
+            self.assertEqual((await self.client.post(base+'/'+b['id']+'/avatar',json={'image':'data:image/svg+xml,bad'},headers=headers)).status_code,400)
+            other=(await self.client.post('/api/rooms',json={'project':folder},headers=headers)).json()['id']
+            self.assertEqual((await self.client.post('/api/rooms/'+other+'/members/'+a['id']+'/avatar',json={'image':png},headers=headers)).status_code,400)
+            state=(await self.client.get('/api/connection-state?room_id='+rid)).json()
+            self.assertEqual(state['avatars'],{key:png})
+            server.STORE.message(rid,a['id'],'实例消息')
+            exported=await self.client.get('/api/rooms/'+rid+'/export')
+            self.assertIn('## 方案设计师',exported.text)
+            with patch.object(server.WORK,'start') as start:
+                sent=await self.client.post('/api/rooms/'+rid+'/send',json={'text':'测试实例','target':b['id']},headers=headers)
+                self.assertEqual(sent.status_code,200,sent.text)
+                self.assertEqual(start.call_args.args[3],b['id'])
+                self.assertEqual([m['id'] for m in start.call_args.args[-1]['members']],[a['id'],b['id']])
+            removed=await self.client.post(base+'/'+a['id']+'/membership',json={'enabled':False},headers=headers)
+            self.assertEqual(removed.json()['room_settings']['members'],[b])
+            self.assertIn('## 方案设计师',(await self.client.get('/api/rooms/'+rid+'/export')).text)
+            reset=await self.client.post(avatar_url,json={'image':None},headers=headers)
+            self.assertEqual(reset.json()['avatars'],{})
+            self.assertEqual(preferences.PREFS.read_bytes(),original)
+
     async def asyncSetUp(self):
         self.pref_home=tempfile.TemporaryDirectory(dir=TEST_HOME.name)
         base=Path(self.pref_home.name)
@@ -657,51 +700,64 @@ class SupervisorValidationTests(unittest.TestCase):
 
 class WorkflowTests(unittest.IsolatedAsyncioTestCase):
     async def test_supervisor_can_blind_parallel_ask_then_choose_any_writer_with_real_test(self):
+        from test_token_optimization import control,RULES
+        from workflow_state import current_refs
+        from preflight import check
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)/'project';root.mkdir()
             subprocess.run(['git','init'],cwd=root,check=True,capture_output=True)
             (root/'test.js').write_text("const fs=require('fs');if(fs.readFileSync('result.txt','utf8')!=='OK')process.exit(1)",encoding='utf-8')
-            store=Store(Path(folder)/'state');rid=store.create('Supervisor test',str(root))['id']
+            store=Store(Path(folder)/'state');self.addCleanup(store.db.close)
+            rid=store.create('Supervisor test',str(root))['id'];work=workflows.Workflows(store);calls=[];step=0
             task={'goal':'Write OK','allowed_paths':['result.txt'],'acceptance_commands':['node test.js'],'context':'Write exactly OK'}
-            steps=[decision('ask',['chatgpt','deepseek'],parallel=True,share_previous=False),decision('execute',['claude'],task=task),decision('finish')]
-            steps[-1]['checks'][0].update(status='met',evidence='两方独立发言，Claude 写入且实际 Node 验收通过',evidence_ids=['E01','E02','E03'])
-            calls=[];work=workflows.Workflows(store)
             async def reply(rid,provider,prompt,root,settings,phase,coding=False,**context):
+                nonlocal step
                 calls.append((provider,phase,coding,prompt))
-                if provider=='supervisor':return json.dumps(steps.pop(0))
-                if coding:(root/'result.txt').write_text('OK',encoding='utf-8');return 'STATUS: DONE'
-                return '独立提案 '+provider
-            work.reply=reply;selected=preferences.load();selected['models']['claude']='claude-haiku-5-5'
+                if provider=='supervisor':
+                    state,_=store.load_workflow(rid);step+=1
+                    if step==1:value=control({'type':'ask','kind':'propose','agents':['chatgpt','deepseek'],'instruction':'independent proposal','parallel':True},RULES)
+                    elif step==2:value=control({'type':'adopt_plan','plan_id':'P1','message_id':next(m['id'] for m in store.messages(rid) if m['provider']=='chatgpt')})
+                    elif step==3:value=control({'type':'request_approval','plan_ref':'P1@1'})
+                    elif step==4:value=control({'type':'execute','agents':['claude'],'task':task,'plan_ref':'P1@1','approval_ids':state['approvals']})
+                    else:value=control({'type':'finish','full_checks':[{'rule_id':'R1','status':'met','note':'Two proposals and actual Node acceptance passed','evidence_ids':['E01','E02','E03'],'bound_to':current_refs(state)}]})
+                    return json.dumps(value)
+                if coding:(root/'result.txt').write_text('OK',encoding='utf-8');answer='STATUS: DONE'
+                else:answer='独立提案 '+provider
+                store.message(rid,provider,answer);return answer
+            work.reply=reply;selected=preferences.load();selected['executor']=None
             connections={p:{'ready':True} for p in ['chatgpt','claude','deepseek']}
-            with patch('roster.connections',return_value=connections),patch('engines.preferences.get_key',return_value='sk-fixture'):
+            with patch('roster.connections',return_value=connections),patch('coordination.preflight',new=AsyncMock(return_value=[check('fixture',True,'ok','host')])):
                 await work.start(rid,'Write OK','workflow','all',selected)
+                self.assertEqual(store.room(rid)['status'],'awaiting_approval');self.assertFalse((root/'result.txt').exists())
+                await work.start(rid,'同意','workflow','all',selected)
             self.assertEqual(store.room(rid)['status'],'complete',store.messages(rid))
-            self.assertEqual((root/'result.txt').read_text(),'OK')
-            self.assertTrue((root/'.tiered/REPORT.md').exists())
+            self.assertEqual((root/'result.txt').read_text(),'OK');self.assertTrue((root/'.tiered/REPORT.md').exists())
             worker_calls=[c for c in calls if c[0]!='supervisor']
-            self.assertEqual([c[0] for c in worker_calls],['chatgpt','deepseek','claude'])
-            self.assertTrue(worker_calls[-1][2]);self.assertNotIn('此前其他工作者的答复未提供',worker_calls[0][3])
-            events=store.events(rid,0);self.assertTrue(any(e['type']=='test' and e['exit_code']==0 for e in events))
+            self.assertEqual([c[0] for c in worker_calls],['chatgpt','deepseek','claude']);self.assertTrue(worker_calls[-1][2])
+            self.assertTrue(any(e['type']=='test' and e['exit_code']==0 for e in store.events(rid,0)))
             store.db.close()
 
     async def test_rule_update_during_monitor_reply_discards_old_arrangement(self):
+        from test_token_optimization import control,RULES
+        from workflow_state import current_refs
         with tempfile.TemporaryDirectory() as folder:
-            root=Path(folder);store=Store(root/'state');rid=store.create('Rules',str(root))['id'];work=workflows.Workflows(store)
-            calls=[];n=0
+            root=Path(folder);store=Store(root/'state');self.addCleanup(store.db.close)
+            rid=store.create('Rules',str(root))['id'];work=workflows.Workflows(store);calls=[];n=0
             async def reply(rid,provider,prompt,root,settings,phase,coding=False,**context):
                 nonlocal n
                 calls.append(provider)
                 if provider=='supervisor':
                     n+=1
-                    if n==1:store.set_policy(rid,'新规则：只让 Claude 发言');return json.dumps(decision('ask',['deepseek']))
-                    if n==2:return json.dumps(decision('ask',['claude']))
-                    value=decision('finish');value['checks'][0].update(status='met',evidence='Claude 已回复',evidence_ids=['E01']);return json.dumps(value)
-                return '已收到'
+                    if n==1:store.set_policy(rid,'新规则：只让 Claude 发言');return json.dumps(control({'type':'ask','kind':'clarify','instruction':'answer','agents':['deepseek']},RULES))
+                    if n==2:return json.dumps(control({'type':'ask','kind':'clarify','instruction':'answer','agents':['claude']},RULES))
+                    state,_=store.load_workflow(rid)
+                    return json.dumps(control({'type':'finish','full_checks':[{'rule_id':'R1','status':'met','note':'Claude replied','evidence_ids':['E01'],'bound_to':current_refs(state)}]}))
+                store.message(rid,provider,'已收到');return '已收到'
             work.reply=reply
             with patch('roster.connections',return_value={p:{'ready':True} for p in ['chatgpt','claude','deepseek']}):
                 await work.start(rid,'检查规则','workflow','all',preferences.load())
-            self.assertEqual(store.room(rid)['status'],'complete',store.messages(rid))
-            self.assertNotIn('deepseek',calls);self.assertIn('claude',calls);store.db.close()
+            self.assertEqual(store.room(rid)['status'],'complete',store.messages(rid));self.assertNotIn('deepseek',calls);self.assertIn('claude',calls)
+            store.db.close()
 
 class ConfigurableTeamTests(unittest.IsolatedAsyncioTestCase):
     def custom(self,mid='qwen',name='自定义成员'):

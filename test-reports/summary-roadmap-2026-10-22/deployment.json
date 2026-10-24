@@ -1,0 +1,42 @@
+{
+  "precheck_passed": true,
+  "previous_version": "0.12.3",
+  "expected_version": "0.13.0",
+  "active_rooms_before": 0,
+  "counts_before": {
+    "rooms": 6,
+    "messages": 152,
+    "plans": 1,
+    "approvals": 3,
+    "usage_records": 27
+  },
+  "room_configuration_sha256_before": "08ec2d500aa983a1ce1ff4efb03d4498be5d2b4ca1f93f91a97638bf8f9fd0bf",
+  "backup_created": true,
+  "backup_file": "summary-roadmap-20261022-172711.sqlite3",
+  "tested_sources_unchanged": true,
+  "live_model_calls": false,
+  "passed": true,
+  "health": {
+    "service": "tiered-dev-gui",
+    "version": "0.13.0",
+    "active_workflows": 0
+  },
+  "counts_after": {
+    "rooms": 6,
+    "messages": 152,
+    "plans": 1,
+    "approvals": 3,
+    "usage_records": 27
+  },
+  "room_configuration_unchanged": true,
+  "integrity_check": "ok",
+  "existing_rooms_opted_in": 0,
+  "day_reports_checked": 6,
+  "backup_files": [
+    "summary-roadmap-20261022-172711.sqlite3",
+    "summary-roadmap-final-20261022-174048.sqlite3"
+  ],
+  "final_tests_run": 230,
+  "final_sources_verified": true,
+  "archive_retrieval_compatibility_deployed": true
+}

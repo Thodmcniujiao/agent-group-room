@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "answer": "验收联通",
+  "usage": [
+    {
+      "id": 1,
+      "room": "0cde4e4e29564bfead6850e648a9ca0c",
+      "identity": "claude",
+      "role": "discussion",
+      "session_key": "0cc26fbd97724dff7d117b52604d3a93768d378e248493f9dfb7878f4f411574",
+      "branch": "6cd54d879c4a4e4483c22a807c8a747f",
+      "adapter": "claude",
+      "model": "claude-opus-5-5",
+      "request_ref": "76496636-f9c6-49bc-b20c-1da68dc0b623:msg_011CgGLmpaZYRti1SHwqpfG6",
+      "input": 4803,
+      "cached_read": 0,
+      "cache_write": 4801,
+      "output": 84,
+      "reasoning": null,
+      "status": "complete",
+      "composition": "{\"state\": 0, \"instructions\": 223, \"originals\": 1, \"tools\": 439, \"contract\": 0, \"unattributed\": 4140, \"host_estimate\": 663}",
+      "created": "2026-10-22T00:38:17.682972+00:00"
+    }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "high"
+}

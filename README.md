@@ -1,10 +1,16 @@
 # Agent Group Room · 代理协作室
 
+**当前版本 / Current release: v0.1.2** · [更新记录 / Changelog](CHANGELOG.md)
+
 **可配置的多模型协作群聊，由独立监工按你的规则调度与核对。**
 
 **A configurable multi-model group chat, coordinated and checked by an independent supervisor following your rules.**
 
 [中文](#中文介绍) · [English](#english)
+
+v0.1.2 汇总当前项目的全部功能更新：独立的协作室 Agent 实例、Gemini 与 Vertex 双渠道及赠金余额同步、持久工作流与方案审批、上下文与协作日志，以及可选的 Voice Studio 源码。安装步骤见下文；本机凭据、运行记录、下载的语音引擎和模型不随源码发布。
+
+v0.1.2 brings together independent room member instances, Gemini/Vertex routing with credit balance sync, persistent workflows and plan approval, context controls and collaboration logs, plus the optional Voice Studio source. See the installation instructions below. Local credentials, runtime history, and downloaded voice engines/models are kept outside the source release.
 
 ## AI 生成说明 · AI generation disclosure
 
@@ -21,7 +27,7 @@ Agent Group Room 是一个运行在本机的代理协作窗口。你可以组建
 ### 主要功能
 
 - **独立桌面窗口**：通过 pywebview / Windows WebView2 启动应用，具有独立标题栏、任务栏图标和窗口尺寸记忆；重复启动唤回已有窗口。关闭窗口后后台继续处理任务，重新打开可查看进度。
-- **两层管理**：Agent 库按服务商保存最多 100 位 Agent 的连接与密钥；每个协作室独立邀请 0–20 位成员，并保存群内模型与监工设置。Agent 管理只维护连接，不提供入群开关。
+- **两层管理**：Agent 库按服务商保存最多 100 位 Agent 的连接与密钥；每个协作室独立邀请 0–20 位成员。同一个已保存 Agent 可以反复加入，每个实例有独立的名字、头像、模型与会话，并共用来源 Agent 的连接、密钥和账户额度。在“协作室信息 → 邀请成员”中点击“再添加一个”，点击成员可编辑实例设置。
 - **统一模型目录**：每次启动或刷新页面时，后台自动查询 OpenAI、Claude、Gemini、DeepSeek 四家的模型 ID。默认模型、团队成员、监工、调试控制台复用同一连接目录；默认模型和调试模型使用完整下拉选择，另设自定义 ID 输入，不按已填文字过滤目录；同连接合并查询，不同账号隔离。查询失败保留上次目录和当前选择，其他服务手动填写。
 - **账户读数**：在团队侧栏与 Agent 管理卡片显示 ChatGPT / Claude 本机账户的额度使用率、剩余比例与重置时间，以及 DeepSeek API 的实际余额。约每分钟自动更新，也可逐账户手动刷新；同一账户共享额度，不同 API 密钥隔离。Gemini 及普通 OpenAI / Claude API Key 无可直接读取的账户余额时，显示明确说明和官方用量／账单入口，未知值不会显示成 0。
 - **逐 Agent 调试**：在 Agent 管理中打开独立控制台，发送测试指令、临时选择模型，实时查看答复、错误与耗时，并可停止请求。无需加入团队，不带项目或群聊上下文。
@@ -33,12 +39,56 @@ Agent Group Room 是一个运行在本机的代理协作窗口。你可以组建
 - **本机保存**：历史与事件存入 SQLite；API 密钥使用当前 Windows 用户的 DPAPI 加密保存。
 - **交付工具**：查看 diff、执行契约、监工报告，导出群聊，停止运行，或在修改文件前暂停。
 
+### 持久协作与上下文控制（0.12）
+
+工作流现在持久保存目标、规则、证据编号、方案版本、批准和待执行契约。方案从成员原文原样入库；用户批准绑定版本哈希，换版本后旧批准不再有效。监工只把公开安排发进群，完整控制返回另行归档。讨论成员继续直接接收带作者的公开原文，指定执行者只接收自足契约，契约正文不会同时塞进 task 和 context。
+
+执行前由宿主检查 Git、实际执行配置、额度读数和恢复记录。确定的环境故障以红色宿主消息显示，点击其下方“复查并继续”；同一故障仍在且只请求续接时不会调用模型。修复后仅在方案、批准、政策、执行者和路径仍有效时续接原契约。契约外变更必须先恢复，预算覆盖不能绕过该检查。
+
+顶部“上下文设置”新增监工账本模式（默认，可切换完整状态）、续接短语（初始仅“继续”）、讨论容忍度 1–5、维护阈值（默认 0.6）和交接原文条数（默认 8）。投递按实际覆盖区间记录，省略的原文保留为缺口；分段读取完整后才标为已投递。换连接、型号或角色指令时使用公开交接包，完整私有历史保留在原身份分支。
+
+“变更与报告 → 工作流 / 用量 / 原始控制返回”提供逐请求用量和审计资料。Codex 累计计数取增量，Claude 缓存输入分项合计，Gemini 保留缓存与思考用量，兼容 API 工具续轮逐次记录；缺失字段保持未知。中文估算先以影子方式校准，连续 20 次达到误差要求后才参与拦截。原生 CLI 的压缩范围遵守本机返回的能力限制，不能满足阈值时使用公开交接包，不降低推理强度。
+
+实现与验证留档见 [token 优化记录](test-reports/token-optimization-2026-10-22/README.md)。真实模型测试需显式传入 `--live`，会使用对应账户额度；普通回归不调用模型。
+
+0.12.1 按独立审计继续修复：环境阻断指纹忽略临时路径、PID 和时钟并保留错误码；范围恢复后可续接有效原契约；复查/批准按钮使用独立动作记录，不再生成用户原文。监工优先接收最近咨询的回复及宿主检查，超长宿主原文分段投递并保留缺口；校准接入 CLI、API 及工具续轮的实际预算检查。账本支持嵌套及按 ID 增量，执行者交接保留完整契约、执行状态和恢复记录，执行入口仍只传契约正文一次。当前方案结束前须有明确共识，或由真实用户决定采用存在反对/未表态的版本。
+
+审计修复与限制见 [0.12.1 复验记录](test-reports/token-audit-fixes-2026-10-22/README.md)。**完整任务的同条件 token 节省验收仍未完成**，原方案标准保持不变。Claude 的系统提示快照已按本机 CLI 能力显式启用；本次真实续接探针被账户周额度限制挡住，不能声称已实测通过。分享测试记录时使用 `scripts/export_test_reports.py` 生成公开白名单压缩包，勿直接打包含原生私有会话的整个目录。
+
+0.12.2 将方案审批改为宿主生成的正式文档：群聊显示文档卡片，独立阅读、下载 HTML/Markdown、打印为 PDF；批准绑定文档版本及哈希。批准前自动清理已结束任务的残留项目锁；项目确有另一任务时，先记录批准并排队，空闲后自动继续。见 [审批文档与续接验证](test-reports/approval-documents-2026-10-22/README.md)。
+
+0.12.3 由宿主在执行预检中自动为尚无 Git 仓库的所选项目执行 `git init`，在群聊留下宿主操作记录，再检查执行器环境。已有仓库不重复初始化，位于父仓库中的子目录仍需选择真实根目录；损坏元数据或权限异常会保留现场并报告。见 [宿主自动初始化验证](test-reports/host-git-init-2026-10-22/README.md)。
+
+0.13.0 增加房间独立的“历史摘要与工具输出”设置，默认关闭。开启后可分别使用作者自述摘要、有界目录、工具输出归档与回取、只读项目工具及简洁发言指令；开关在下一次调用生效并使用新分支，当前调用保持原设置。摘要与编号不算全文已投递，分段读取完整后才更新覆盖；当前方案、相关未决异议和用户约束保留原文。Bash、Git 和宿主验收在预览前归档，退出码不被预览改写。关闭优化仍可回取已有归档；执行身份跨分支读取自己的执行输出，不跨角色读取讨论输出。
+
+设置中可查看按成员、角色、会话、日期、适配器及发言类型的用量与回取报表。缓存读写已经包含在输入总量内，推理已包含在输出总量内；未知字段与尚未验证的净收益明确标出。双投递、Headroom、RepoMap、TOON、ccusage、CoMem、Context Mode、Claude-Mem、LLMLingua 保留独立实验准入，当前均关闭，待日后测试。实施范围见 [路线图](Plan_documents/成员摘要与上下文优化路线图.md)，功能验收与真实效果的区别见 [0.13.0 验收记录](test-reports/summary-roadmap-2026-10-22/README.md)。
+
+每个优化开关与预算参数旁均有“功能与原理”链接，点击可查看该项功能、工作原理、默认值、依赖、关闭行为及限制；实验项另列未来测试要求和上游资料。说明在设置上方打开，返回后保留尚未保存的编辑，也可单独阅读[完整说明手册](gui/web/optimization-guide.html)。本机服务运行时可直接打开 [本机说明页](http://127.0.0.1:49315/assets/optimization-guide.html)。
+
+0.14.0 在输入框上方增加默认开启的“本地 log”开关和“协作日志”入口。每次开始协作、自由讨论、批准续接或环境复查分别建立日志目录，关联成员、角色、会话分支、发言及逐次请求。API 保存实际 HTTP 请求体（可读 JSON 与原始字节 Base64）、返回正文数据和逐请求用量；CLI 保存宿主实际发送的提示、会话参数、stdout 事件及 stderr。CLI 内部未暴露的最终服务商请求体不宣称完整可见，未返回的计量字段保持未知。
+
+日志位于本机状态目录 `~/.local/share/tiered-dev/gui/collaboration-logs/<房间>/<协作>/`，可在界面中分页查看或下载单份 JSONL；不记录鉴权请求头或环境变量。开关按房间保存，运行中切换影响后续诊断记录，关闭后保留已有文件；群聊、原生会话续接与基础用量记录继续按原逻辑保存。用量显示已知输入/输出、缓存命中率、上下文窗口与软预算各自的占用率，估算窗口与服务商返回值区分显示。日志含实际任务材料，不进入项目目录或公开测试导出。
+
+“Agent 管理 → 设置所有头像”新增聊天头像大小滑块，24–96 px，即时预览、松开自动保存，可恢复默认 32 px。大小应用于全部协作室中的用户、监工及成员聊天头像，侧栏和头像图片保持原有设置。实现边界、数据格式与验收见 [0.14.0 日志及头像设置记录](test-reports/collaboration-log-2026-10-22/README.md)。
+
+0.14.1 修复执行中途故障的分流：输出截断、工具轮数耗尽、写入待核实及运行器异常均交由宿主记录、检查与阻断，复查不再调用监工解释故障，也不重派已启动契约。原有文件、失败证据和未核实恢复记录保留；宿主完整验收可独立证明交付，不把执行器原失败改成成功。旧版本误标的最近一次运行异常在续接时也先走宿主检查。
+
+编码执行输出上限现在与房间“上下文设置 → 输出预留 / API 输出上限”一致：移除宿主、MCP 配置及 HTTP 子进程的固定 16,384 校验，保留应用上限 128,000、原生进程隔离及其他资源边界。现有默认 32,768 无需重新保存即可用于下次请求；服务商限制仍独立生效。工具续轮默认 16，可在同处单独设置为 1–100。两个参数均附功能与原理说明。验证见 [0.14.1 宿主分流与输出上限](test-reports/execution-host-routing-2026-10-22/README.md)。
+
+### Google 余额与双渠道调用
+
+顶部「Google 渠道与余额」可为已保存的官方 Gemini Agent 配置 Gemini Developer API、Vertex AI 或按余额自动选择。自动模式优先使用当前适用于 Vertex 的 Cloud 赠金，再使用 Gemini API 预付余额和 AI Studio 明确标为适用的赠金；未知、过期或超过 10 分钟的余额不会用于自动请求。切换在新调用前完成，并按渠道创建独立会话，保留原生工具调用签名。
+
+Vertex 使用 Google Cloud CLI 的本机 ADC；项目和结算账号绑定在调用前通过官方接口核验。剩余赠金和预付余额由用户登录的官方账单页通过[配套浏览器扩展](browser/google-billing-sync/README.md)只读同步，支持 AI Studio 的 Google Payments 内嵌账单。配对后每 5 分钟刷新已打开的账单标签页；浏览器关闭后读数会过期。账单存在延迟，此功能不是扣费硬上限。
+
+已验证官方模型目录、两个渠道的真实应用调试、真实余额同步，以及 282 项离线回归；具体范围与限制见[验证记录](test-reports/google-billing-2026-10-24/README.md)。
+
 ### 环境要求
 
 - Windows 10 / 11，Python **3.12**，Git，Microsoft Edge WebView2 Runtime（现代 Windows 通常已安装）。
 - 若使用 ChatGPT / Claude CLI 连接，需要分别安装并登录对应的官方 CLI。
 - 若使用 API 成员，需要配置服务地址、可用模型和密钥；回环地址上的本机服务可选择免密钥。
-- 自动修改文件时，项目必须位于 Git 仓库根目录。
+- 自动修改文件时，宿主自动初始化尚无仓库的项目；已有仓库需要选择其根目录。
 - 运行完整测试套件还需要 Node.js，其中一项检查会实际执行一个小型 Node 验收脚本。
 
 ### 安装与启动
@@ -119,6 +169,16 @@ MCP Python SDK 为 MIT，OpenAI Python SDK 为 Apache-2.0，Starlette、Uvicorn�
 Agent Group Room is a local workspace for collaborating with a configurable team of model agents. Members can propose solutions, challenge one another, implement changes, and inspect results in one shared conversation. An independent supervisor uses your natural-language collaboration policy to choose the next step and check whether the team is following it.
 
 Members have no permanent planner, reviewer, or implementer roles. ChatGPT, Claude, and DeepSeek are the initial members. Add, remove, or rename them, or create several members using the same service with different models.
+
+Version 0.12 persists workflow facts, numbered evidence, exact proposal versions, user approvals, and pending execution contracts. A proposal change invalidates its old approvals. The supervisor publishes a short public message while control records remain in a separate audit archive. Discussion members still receive original peer messages; the designated executor receives one self-contained contract.
+
+Version 0.12.1 addresses the independent audit: stable fault fingerprints, safe contract continuation after scope restoration, separate button-action provenance, prioritized host evidence with explicit unread segments, calibrated CLI/API budget gates, nested ledger patches, and complete executor handoffs. Finishing a versioned plan requires explicit consensus or a real user decision accepting unresolved votes. See the [audit follow-up](test-reports/token-audit-fixes-2026-10-22/README.md). Full-task token savings remain unverified under the original criteria. The live Claude snapshot probe was blocked by the account's weekly limit; it is recorded as unsuccessful, not a pass.
+
+Version 0.12.2 adds host-generated approval documents with an independent reader, HTML/Markdown downloads and print styles. Approval binds the exact document version and hash. Finished tasks release stale project reservations; when another workflow owns the project, approval is recorded immediately and execution waits in a cancellable queue. See the [approval validation record](test-reports/approval-documents-2026-10-22/README.md).
+
+Version 0.12.3 lets the host initialize a selected project automatically during execution preflight when it is outside any Git repository. The host records the action and rechecks the executor environment. Existing repositories are preserved; nested projects still require their actual root, and damaged metadata or permission errors remain explicit blockers. See the [host Git initialization record](test-reports/host-git-init-2026-10-22/README.md).
+
+Host preflight checks Git, the actual executor configuration, quota availability, and recovery records. Red host errors offer **Recheck and continue**; an unchanged blocker does not trigger another model call for a resume-only request. Room context settings include supervisor state/full mode, editable resume phrases, discussion tolerance, maintenance threshold, and handoff size. Actual delivery intervals and gaps survive retries; private provider histories stay with their original identity. Per-request usage keeps unknown counters unknown and separates cache metrics. Tests and live-call limitations are documented in the [optimization report](test-reports/token-optimization-2026-10-22/README.md).
 
 ### Features
 

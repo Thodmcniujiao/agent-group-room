@@ -1,0 +1,2 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><link rel="stylesheet" href="popup.css"><title>Google 余额同步</title>
+<h2>Google 余额同步</h2><form id="form"><label>本机应用地址<input id="origin" placeholder="http://127.0.0.1:49315" required></label><label>配对码<input id="token" type="password" required></label><label><input id="auto" type="checkbox">每 5 分钟刷新已打开的账单标签页</label><p>只读取 Cloud 赠金表和 AI Studio 预付余额。刷新会重新加载这些标签页；关闭标签页或应用后停止同步。</p><button>保存配对</button></form><p id="status" role="status"></p><script type="module" src="popup.js"></script></html>

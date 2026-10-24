@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "surface": "isolated local fixture",
+  "version": "0.13.0",
+  "live_model_calls": false,
+  "checks": {
+    "settings_dark_theme": true,
+    "settings_light_theme": true,
+    "master_off_persisted_after_reopen": true,
+    "master_on_persisted": true,
+    "dependent_controls_disabled_when_off": 4,
+    "author_summary_cards": 1,
+    "vote_mismatch_cards": 1,
+    "research_switches_disabled_and_labeled_pending": 9,
+    "cache_report_input_inclusive": 1000,
+    "cache_report_cached_read": 800,
+    "cache_report_hit_rate": 0.8,
+    "partial_message_retrieval_not_marked_full": true,
+    "delivery_view_shows_full_menu_id_separately": true,
+    "production_page_loads_new_settings_component": true,
+    "production_sidebar_rooms": 6
+  },
+  "screenshots": [
+    "settings-dark.png",
+    "settings-light.png",
+    "usage-dark.png",
+    "delivery-light.png"
+  ],
+  "browser_notes": [
+    "The first navigation of the separate production browser session was aborted; the same URL succeeded after a local browser diagnostic and retry.",
+    "A visibility wait on a closed dialog timed out; DOM checks confirmed the settings component and six existing rooms. No production room settings were changed."
+  ]
+}

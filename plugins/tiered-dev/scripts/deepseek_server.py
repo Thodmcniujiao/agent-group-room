@@ -28,10 +28,9 @@ def _selected_config(*args, **kwargs):
         changes.update(base_url=os.environ['TIERED_MEMBER_BASE_URL'],api_key=os.environ['TIERED_MEMBER_API_KEY'])
         if 'api.deepseek.com' not in changes['base_url']:
             changes['reasoning_effort']='provider-default'
-    if os.environ.get('TIERED_CONTEXT_FILE'):
-        # The room's output budget may exceed what the pinned executor accepts (1..16384).
-        from deepseek_mcp.provider_settings import DEFAULT_MAX_OUTPUT_TOKENS
-        changes['max_output_tokens']=max(1,min(int(os.environ.get('TIERED_CONTEXT_OUTPUT','16384')),DEFAULT_MAX_OUTPUT_TOKENS))
+    if os.environ.get('TIERED_CONTEXT_OUTPUT'):
+        from executor_limits import validate_output_tokens
+        changes['max_output_tokens']=validate_output_tokens(int(os.environ['TIERED_CONTEXT_OUTPUT']))
     if os.environ.get('TIERED_CONTEXT_TOOL_ROUNDS'):changes['max_turns']=int(os.environ['TIERED_CONTEXT_TOOL_ROUNDS'])
     if 'TIERED_MEMBER_EFFORT' in os.environ:
         from preferences import effort_id
@@ -39,8 +38,23 @@ def _selected_config(*args, **kwargs):
     return replace(cfg,**changes) if changes else cfg
 upstream._load_config = _selected_config
 
+
+def executor_health() -> str:
+    """Validate the exact selected execution config without running a model."""
+    try:
+        cfg=_selected_config()
+        return json.dumps({'ok':True,'model':cfg.model,'workspace':str(cfg.workspace),
+            'max_output_tokens':cfg.max_output_tokens,'max_turns':cfg.max_turns})
+    except Exception as exc:
+        return json.dumps({'ok':False,'error':type(exc).__name__+': '+str(exc)})
+
+
+upstream.mcp.add_tool(executor_health,name='executor_health',annotations=upstream._READ_ONLY)
+
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'gui'))
+from executor_limits import install_output_limits
+install_output_limits()
 if os.environ.get('TIERED_CONTEXT_FILE'):
     from execution_context import install
     install()

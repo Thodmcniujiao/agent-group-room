@@ -65,6 +65,12 @@ def claude_meter(data):
 
 async def read_account(agent,key):
     provider=provider_for(agent)
+    if provider=='gemini' and agent.get('google_billing'):
+        from google_billing import balances,access_token,verify_project
+        cfg=agent['google_billing']
+        await verify_project(cfg,await access_token())
+        reading=balances(cfg['billing_account'])
+        return {**reading,'windows':[],'plan':'Google · '+cfg['mode']}
     if provider=='chatgpt':return codex_meter(await chatgpt_limits())
     if provider=='claude':return claude_meter(await claude_limits())
     if provider!='deepseek':raise ValueError('此连接没有可用的账户读数接口。')
@@ -102,6 +108,16 @@ class UsageMonitor:
         for agent in settings['agents']:
             provider=provider_for(agent)
             if not provider:continue
+            if provider=='gemini' and agent.get('google_billing'):
+                from google_billing import balances,select
+                cfg=agent['google_billing'];data=balances(cfg['billing_account'])
+                try:route=select(agent,bool(connection_context(agent)[1]));reason='下次调用：'+route
+                except ValueError as exc:route=None;reason=str(exc)
+                entries[agent['id']]={**data,'windows':[],'plan':'Google · '+cfg['mode'],
+                    'updated':max((s['observed_at'] for s in data['observations']),default=None),
+                    'detail':reason+'；'+data['detail'],'url':'https://console.cloud.google.com/billing/'+cfg['billing_account']+'/credits',
+                    'selected_route':route,'project':cfg['project'],'billing_account':cfg['billing_account']}
+                continue
             if provider in ['openai','claude-api','gemini']:
                 entries[agent['id']]={**external(provider),'url':LINKS[provider],'updated':None};continue
             fingerprint,key=connection_context(agent)
@@ -161,7 +177,7 @@ def _summary(entry):
         text=f"{w['label']} 剩余 {w['remaining_percent']:g}%"
         if w.get('resets_at'):text+=f"（{w['resets_at'][:16].replace('T',' ')} UTC 重置）"
         parts.append(text)
-    for b in entry.get('balances',[]):parts.append(f"余额 {b['currency']} {b['total_balance']}")
+    for b in entry.get('balances',[]):parts.append(f"{b.get('route','')} 余额 {b['currency']} {b['total_balance']}".strip())
     return '；'.join(parts) or '无读数'
 
 
@@ -190,7 +206,9 @@ def team_quota(settings,snapshot):
     rows=[];pools={}
     for identity,aid,name,role in participants(settings):
         entry=entries.get(aid)
-        try:fingerprint=connection_context(agents[aid])[0] if aid in agents else aid
+        try:
+            source=agents.get(aid,{})
+            fingerprint=('google-billing:'+source['google_billing']['billing_account']) if source.get('google_billing') else connection_context(source)[0] if aid in agents else aid
         except (OSError,KeyError,TypeError,ValueError):fingerprint=aid
         if entry is None:
             entry={'status':'none','detail':'此连接没有可读的额度接口。','windows':[],'balances':[]}

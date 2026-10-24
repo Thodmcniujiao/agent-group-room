@@ -110,8 +110,10 @@ def project_context(root):
     return '项目文件路径（最多 350 个）：\n'+'\n'.join(tree)+'\n\n适用项目规则：\n'+'\n'.join(rules)[-24000:]
 
 
-async def verify_commands(store,rid,root,commands):
+async def verify_commands(store,rid,root,commands,settings=None):
     evidence=[]
+    from optimization_settings import active
+    selected=settings if settings is not None else (store.configuration(rid) or {})
     for command in commands:
         validate_command(command)
         store.event(rid,{'type':'activity','provider':'system','text':'验收：'+command})
@@ -122,24 +124,16 @@ async def verify_commands(store,rid,root,commands):
         env.update(GIT_CONFIG_GLOBAL=tools['TIERED_GIT_CONFIG'],GIT_TERMINAL_PROMPT='0',GIT_CONFIG_PARAMETERS=git_access.parameters(root),
             APPDATA=str(scratch/'AppData'/'Roaming'),LOCALAPPDATA=str(scratch/'AppData'/'Local'))
         for name in ['APPDATA','LOCALAPPDATA']: Path(env[name]).mkdir(parents=True,exist_ok=True)
-        proc=await asyncio.create_subprocess_exec(os.environ.get('COMSPEC','cmd.exe'),'/d','/s','/c',command,
-            cwd=root,env=env,stdin=asyncio.subprocess.DEVNULL,stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,creationflags=HIDDEN)
-        captured=bytearray();size=0
-        async def consume():
-            nonlocal size
-            while chunk:=await proc.stdout.read(4096):
-                size+=len(chunk)
-                captured.extend(chunk[:max(0,30000-len(captured))])
-                if size>8_000_000: raise RuntimeError('测试输出超过上限，已停止。')
-            await proc.wait()
-        try: await asyncio.wait_for(consume(),600)
-        except BaseException:
-            from engines import kill_tree
-            await kill_tree(proc);raise
-        text=captured.decode('utf-8',errors='replace')
-        evidence.append({'command':command,'exit_code':proc.returncode,'output':text})
-        store.event(rid,{'type':'test','command':command,'exit_code':proc.returncode,'output':text})
+        from host_commands import run
+        code,text=await run(command,root,env,**({'capture_full':True} if active(selected,'output_preview') else {}))
+        reference=None;body=text
+        if active(selected,'output_preview'):
+            from output_archive import present
+            body,reference=present(store,rid,'host',command,code,text,selected,kind='acceptance')
+        record={'command':command,'exit_code':code,'output':body}
+        if reference:record.update(output_id=reference['id'],output_sha256=reference['sha256'],output_is_preview=body!=text,capture_complete=True)
+        evidence.append(record)
+        store.event(rid,{'type':'test',**record})
     return evidence
 
 
@@ -170,18 +164,65 @@ class Workflows(SupervisorWorkflow):
         from budget_control import BudgetGate
         self.budget_gate=BudgetGate(store);store.budget_gate=self.budget_gate
 
-    def start(self,rid,text,mode,target,settings):
+    def prune_finished(self):
+        for rid,task in list(self.running.items()):
+            if task.done() and self.running.get(rid) is task:self.running.pop(rid,None)
+        for root,rid in list(self.project_busy.items()):
+            if rid not in self.running:self.project_busy.pop(root,None)
+
+    def start(self,rid,text,mode,target,settings,*,source='user',action=None):
+        if source not in ['user','button']:raise ValueError('请求来源无效。')
+        if source=='button' and (mode!='workflow' or not action or action.get('kind') not in ['approve','recheck']):raise ValueError('宿主动作无效。')
+        self.prune_finished()
         if rid in self.running: raise ValueError('此会话正在运行，请先停止或等待完成。')
         if mode!='policy' and not settings['members']:raise ValueError('此协作室暂无成员，请在“协作室信息”中邀请 Agent。')
         room=self.store.room(rid);root=project_path(room['project'])
         canonical=str(root).casefold()
-        if mode=='workflow' and canonical in self.project_busy: raise ValueError('同一项目已有执行任务，请等待完成。')
-        if mode=='workflow': self.project_busy[canonical]=rid
-        self.store.message(rid,'you',text)
-        self.store.status(rid,'running')
-        task=asyncio.create_task(self.run(rid,text,mode,target,settings,root))
+        queued=mode=='workflow' and canonical in self.project_busy
+        if queued and not (source=='button' and action['kind']=='approve'):
+            owner=self.store.room(self.project_busy[canonical])
+            raise ValueError('同一项目正在由“'+owner['title']+'”处理，请等待或停止该协作室的任务。')
+        if source=='button':
+            settings={**settings,'_host_action_id':self.store.add_host_action(rid,action['kind'],action)}
+            if action['kind']=='approve':
+                from workflow_state import accept_button_approval
+                state,revision=self.store.load_workflow(rid)
+                if not state or not accept_button_approval(state,self.store,rid,settings['_host_action_id']):raise ValueError('此方案已批准或确认已过期。')
+                state['status']='queued' if queued else 'active';self.store.save_workflow(rid,state,revision)
+        if hasattr(self.store,'logs'):self.store.logs.begin(rid,mode,target,settings.get('logging_enabled',True))
+        if source=='user':self.store.message(rid,'you',text)
+        elif hasattr(self.store,'logs'):self.store.logs.event(rid,'host_action',action)
+        if mode=='workflow' and not queued:self.project_busy[canonical]=rid
+        self.store.status(rid,'queued' if queued else 'running')
+        if queued:self.store.message(rid,'system','方案已批准；同一项目的另一协作仍在运行，完成后将自动继续。',phase='等待项目空闲')
+        task=asyncio.create_task(self.dispatch(rid,text,mode,target,settings,root))
         self.running[rid]=task
         return task
+
+    async def dispatch(self,rid,text,mode,target,settings,root):
+        canonical=str(root).casefold()
+        try:
+            while mode=='workflow' and self.project_busy.get(canonical) not in [None,rid]:
+                self.prune_finished();owner=self.project_busy.get(canonical)
+                if owner in [None,rid]:break
+                previous=self.running.get(owner)
+                if previous:
+                    try:await asyncio.shield(previous)
+                    except asyncio.CancelledError:
+                        if asyncio.current_task().cancelling():raise
+                    except Exception:self.prune_finished()
+            if mode=='workflow':self.project_busy[canonical]=rid
+            state,revision=self.store.load_workflow(rid)
+            if state and state.get('status')=='queued':
+                state['status']='active';self.store.save_workflow(rid,state,revision)
+            self.store.status(rid,'running')
+            await self.run(rid,text,mode,target,settings,root)
+        except asyncio.CancelledError:
+            self.store.status(rid,'stopped');raise
+        finally:
+            if hasattr(self.store,'logs'):self.store.logs.end(rid,self.store.room(rid)['status'])
+            if self.running.get(rid) is asyncio.current_task():self.running.pop(rid,None)
+            if self.project_busy.get(canonical)==rid:self.project_busy.pop(canonical,None)
 
     async def reply(self,rid,provider,prompt,root,settings,phase,coding=False,**context):
         return await roster.reply(self.store,rid,provider,prompt,root,settings,phase,coding,**context)
@@ -216,7 +257,7 @@ class Workflows(SupervisorWorkflow):
                         partial=True
                         self.store.message(rid,'system',labels[provider]+'：'+str(exc)[:800],phase='连接提示',status='error')
                 self.store.status(rid,'partial' if partial else 'complete')
-            if mode=='workflow': self.store.status(rid,'complete')
+            if mode=='workflow' and self.store.room(rid)['status']=='running': self.store.status(rid,'complete')
         except asyncio.CancelledError:
             self.store.message(rid,'system','已停止本次运行。已经发生的文件修改会保留，请在项目中核对。',phase='已停止')
             self.store.status(rid,'stopped')
@@ -228,7 +269,8 @@ class Workflows(SupervisorWorkflow):
             self.store.message(rid,'system',error or '运行未完成，请检查连接状态。',phase='需要处理',status='error')
             self.store.status(rid,'blocked')
         finally:
-            self.running.pop(rid,None);self.resume.pop(rid,None)
+            if self.running.get(rid) is asyncio.current_task():self.running.pop(rid,None)
+            self.resume.pop(rid,None)
             canonical=str(root).casefold()
             if self.project_busy.get(canonical)==rid: self.project_busy.pop(canonical,None)
 
@@ -241,3 +283,11 @@ class Workflows(SupervisorWorkflow):
             task.cancel()
             try: await task
             except asyncio.CancelledError: pass
+            finally:
+                if self.running.get(rid) is task and task.done():self.running.pop(rid,None)
+                for root,owner in list(self.project_busy.items()):
+                    if owner==rid:self.project_busy.pop(root,None)
+                if self.store.room(rid)['status'] in ['queued','running','paused','budget_paused']:self.store.status(rid,'stopped')
+                state,revision=self.store.load_workflow(rid)
+                if state and state.get('status')=='queued':
+                    state['status']='stopped';self.store.save_workflow(rid,state,revision)

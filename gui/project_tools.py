@@ -9,10 +9,11 @@ from deepseek_mcp.resource_budget import MutationBudget
 
 class ProjectTools:
     names=['Read','Glob','Grep','Write','Edit']
-    def __init__(self,root,allowed_paths):
+    def __init__(self,root,allowed_paths,output_presenter=None):
         self.root=Path(root).resolve();self.allowed=set(allowed_paths or [])
         self.config=Config('unused-no-network',self.root,allowed_tools=self.names)
         self.budget=MutationBudget();self.calls=0
+        self.output_presenter=output_presenter
 
     @classmethod
     def specs(cls):
@@ -32,7 +33,7 @@ class ProjectTools:
         if tool=='Git':
             from engines import preferences
             from git_access import ensure_config,run_readonly
-            return run_readonly(self.root,args.get('args'),ensure_config(self.root,preferences.STATE))
+            return run_readonly(self.root,args.get('args'),ensure_config(self.root,preferences.STATE),output_presenter=self.output_presenter)
         args=copy.deepcopy(args)
         if 'path' in args and isinstance(args['path'],str):
             target=(self.root/args['path']).resolve()

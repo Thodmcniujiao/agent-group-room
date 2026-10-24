@@ -129,7 +129,7 @@ class NativeEffortWireTests(unittest.IsolatedAsyncioTestCase):
                 return httpx.Response(200,headers={'content-type':'text/event-stream'},content='data: '+json.dumps(chunk)+'\n\ndata: [DONE]\n\n')
             def client(**kwargs):return real(**kwargs,http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)))
             turn=SimpleNamespace(state={'native':{}},role='executor',model='deepseek-fixture',tools=False,
-                input_budget=32000,budget={'output':1000},save=lambda:None)
+                input_budget=32000,budget={'output':1000},save=lambda:None,store=None,settings={},instructions=lambda:'executor',schemas=lambda:[])
             with patch.object(provider_sessions,'AsyncOpenAI',side_effect=client):
                 answer,_=await provider_sessions.api_conversation(turn,'fixture','fixture-key','https://api.deepseek.com',lambda _:None,effort)
             self.assertEqual(answer,'fixture reply')
@@ -148,7 +148,7 @@ class NativeEffortWireTests(unittest.IsolatedAsyncioTestCase):
                     if method=='turn/start':self.done={'status':'completed'}
                     return {'thread':{'id':'fixture-native-thread'}}
             turn=SimpleNamespace(input_budget=32000,coding=False,model='fixture-model',role='discussion',
-                state={'native':{}},tools=False,project_tools=None,save=lambda:None)
+                state={'native':{}},tools=False,project_tools=None,save=lambda:None,store=None,settings={},budget={'soft':32000},instructions=lambda:'discussion',schemas=lambda:[])
             with tempfile.TemporaryDirectory() as folder,patch.object(provider_sessions,'CodexRPC',RPC),\
                     patch.object(engines,'find_cli',return_value='fixture-cli'),\
                     patch.object(asyncio,'create_subprocess_exec',new=AsyncMock(return_value=object())),\
@@ -166,11 +166,12 @@ class NativeEffortWireTests(unittest.IsolatedAsyncioTestCase):
             proc=SimpleNamespace(stdin=SimpleNamespace(write=lambda _:None,drain=AsyncMock(),close=lambda:None),
                 stdout=SimpleNamespace(readline=AsyncMock(side_effect=[json.dumps({'type':'result','result':'fixture reply','usage':{}}).encode(),b''])),
                 wait=AsyncMock(),returncode=0)
-            turn=SimpleNamespace(state={'native':{}},coding=False,model='fixture-model',tools=False,role='discussion',budget={'soft':100000},save=lambda:None)
+            turn=SimpleNamespace(state={'native':{}},coding=False,model='fixture-model',tools=False,role='discussion',budget={'soft':100000},save=lambda:None,store=None,settings={},instructions=lambda:'discussion',schemas=lambda:[])
             with tempfile.TemporaryDirectory() as folder,patch.object(engines,'find_cli',return_value='fixture-cli'),\
                     patch.object(asyncio,'create_subprocess_exec',new=AsyncMock(return_value=proc)) as spawn,\
                     patch.object(engines,'kill_tree',new=AsyncMock()):
                 await provider_sessions.claude_conversation(turn,'fixture',Path(folder),effort,lambda _:None)
             args=spawn.call_args.args
+            self.assertEqual(args[args.index('--autocompact')+1],'100000')
             if effort is None:self.assertNotIn('--effort',args)
             else:self.assertEqual(args[args.index('--effort')+1],effort)

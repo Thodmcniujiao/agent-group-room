@@ -517,12 +517,32 @@
     ]
   },
   {
+    "name": "tzdata",
+    "version": "2026.5",
+    "license": "Apache-2.0; IANA timezone data public domain",
+    "source": "https://github.com/python/tzdata",
+    "license_files": [
+      "third_party/licenses/tzdata/LICENSE",
+      "third_party/licenses/tzdata/LICENSE_APACHE"
+    ]
+  },
+  {
     "name": "uvicorn",
     "version": "0.52.4",
     "license": "BSD-3-Clause",
     "source": "https://uvicorn.dev/",
     "license_files": [
       "third_party/licenses/uvicorn/LICENSE.md"
+    ]
+  },
+  {
+    "name": "edge-tts",
+    "version": "7.3.1",
+    "optional": true,
+    "license": "See upstream LICENSE",
+    "source": "https://github.com/rany2/edge-tts",
+    "license_files": [
+      "third_party/licenses/edge-tts/LICENSE"
     ]
   }
 ]

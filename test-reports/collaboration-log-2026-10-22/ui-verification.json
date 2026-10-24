@@ -1,0 +1,49 @@
+{
+  "fixture": "isolated, synthetic data, no live model generation",
+  "logging_default_on": true,
+  "logging_off_survives_refresh": true,
+  "log_raw_view_and_download": true,
+  "cache_rate_fixture": 0.8,
+  "estimated_context_label": true,
+  "avatar_sizes_checked": [
+    24,
+    32,
+    64,
+    96
+  ],
+  "avatar_size_survives_refresh": true,
+  "avatar_reset": 32,
+  "sidebar_avatar_px": 30,
+  "production_default_avatar_px": 32,
+  "production_existing_rooms": 6,
+  "production_empty_log_state": true,
+  "narrow_viewport": [
+    420,
+    860
+  ],
+  "desktop_viewport": [
+    1440,
+    1000
+  ],
+  "a11y": {
+    "log-a11y.json": {
+      "inapplicable": 63,
+      "incomplete": 1,
+      "passes": 25,
+      "violations": 0
+    },
+    "log-a11y-light.json": {
+      "inapplicable": 63,
+      "incomplete": 1,
+      "passes": 25,
+      "violations": 0
+    },
+    "avatar-a11y.json": {
+      "inapplicable": 74,
+      "incomplete": 1,
+      "passes": 14,
+      "violations": 0
+    }
+  },
+  "passed": true
+}

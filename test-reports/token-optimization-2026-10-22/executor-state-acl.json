@@ -1,0 +1,40 @@
+{
+  "backup": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\backups\\executor-state-owner-20261022-002015Z",
+  "repair": [
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp\\locks",
+      "owner_before": "S-1-5-21-1001310448-2446451022-1573099233",
+      "owner_after": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "dacl_unchanged": true,
+      "bytes_unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp\\transactions",
+      "owner_before": "S-1-5-21-1001310448-2446451022-1573099233",
+      "owner_after": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "dacl_unchanged": true,
+      "bytes_unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp\\locks\\1ffc2135c5145e8554ac8f20dd89cd30311e6108da68d49cc4cac154ebe17674.lock",
+      "owner_before": "S-1-5-21-1001310448-2446451022-1573099233",
+      "owner_after": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "dacl_unchanged": true,
+      "bytes_unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp\\transactions\\1ffc2135c5145e8554ac8f20dd89cd30311e6108da68d49cc4cac154ebe17674",
+      "owner_before": "S-1-5-21-1001310448-2446451022-1573099233",
+      "owner_after": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "dacl_unchanged": true,
+      "bytes_unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Thodmc\\.deepseek-mcp\\transactions\\1ffc2135c5145e8554ac8f20dd89cd30311e6108da68d49cc4cac154ebe17674\\.lock",
+      "owner_before": "S-1-5-21-1001310448-2446451022-1573099233",
+      "owner_after": "S-1-5-21-1001310448-2446451022-1573099233-1001",
+      "dacl_unchanged": true,
+      "bytes_unchanged": true
+    }
+  ]
+}

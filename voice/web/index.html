@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 娘声音工作台 · Voice Studio</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(22, 30, 46, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
+            --chatgpt-color: #10a37f;
+            --claude-color: #d97706;
+            --gemini-color: #3b82f6;
+            --deepseek-color: #06b6d4;
+            --accent: #6366f1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1040px;
+            width: 100%;
+        }
+
+        header {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 16px;
+        }
+
+        .header-title h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a5b4fc, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-title p {
+            color: var(--text-sub);
+            font-size: 13px;
+            margin-top: 3px;
+        }
+
+        /* 顶部主导航 Tab */
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            margin-bottom: 24px;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .nav-tab.active {
+            background: var(--card-bg);
+            color: #f8fafc;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .nav-tab:hover:not(.active) {
+            color: #e2e8f0;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+        }
+
+        .indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #64748b;
+        }
+
+        .indicator.online {
+            background-color: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        /* 角色卡片列表 */
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .char-card {
+            background: var(--card-bg);
+            border: 2px solid var(--card-border);
+            border-radius: 14px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .char-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .char-card.active[data-id="chatgpt"] { border-color: var(--chatgpt-color); box-shadow: 0 0 16px rgba(16, 163, 127, 0.25); }
+        .char-card.active[data-id="claude"] { border-color: var(--claude-color); box-shadow: 0 0 16px rgba(217, 119, 6, 0.25); }
+        .char-card.active[data-id="gemini"] { border-color: var(--gemini-color); box-shadow: 0 0 16px rgba(59, 130, 246, 0.25); }
+        .char-card.active[data-id="deepseek"] { border-color: var(--deepseek-color); box-shadow: 0 0 16px rgba(6, 182, 212, 0.25); }
+
+        .char-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .char-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .char-card[data-id="chatgpt"] .char-icon { background: rgba(16, 163, 127, 0.2); color: var(--chatgpt-color); }
+        .char-card[data-id="claude"] .char-icon { background: rgba(217, 119, 6, 0.2); color: var(--claude-color); }
+        .char-card[data-id="gemini"] .char-icon { background: rgba(59, 130, 246, 0.2); color: var(--gemini-color); }
+        .char-card[data-id="deepseek"] .char-icon { background: rgba(6, 182, 212, 0.2); color: var(--deepseek-color); }
+
+        .char-name { font-size: 16px; font-weight: 600; }
+        .char-archetype { font-size: 11px; color: var(--text-sub); }
+
+        .char-desc {
+            font-size: 12px;
+            color: #cbd5e1;
+            line-height: 1.4;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .char-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+        .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: #94a3b8; }
+
+        .btn-preview {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: var(--text-main);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        .btn-preview:hover { background: rgba(255, 255, 255, 0.15); }
+
+        /* 发音工作面板 */
+        .workbench {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 24px;
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .input-header label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
+        .btn-link { background: none; border: none; color: #818cf8; font-size: 12px; cursor: pointer; text-decoration: underline; }
+
+        textarea {
+            width: 100%;
+            height: 110px;
+            background: rgba(11, 15, 25, 0.8);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: #f8fafc;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+            margin-bottom: 16px;
+        }
+        textarea:focus { border-color: #818cf8; }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 12px; color: var(--text-sub); display: flex; justify-content: space-between; }
+
+        select, input[type="range"] {
+            background: rgba(11, 15, 25, 0.8);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            color: var(--text-main);
+            outline: none;
+            font-size: 13px;
+        }
+
+        .action-row { display: flex; gap: 16px; align-items: center; }
+
+        .btn-generate {
+            flex: 1;
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-generate:hover { opacity: 0.95; transform: translateY(-1px); }
+        .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .audio-player-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1.2;
+            background: rgba(11, 15, 25, 0.8);
+            border: 1px solid var(--card-border);
+            padding: 6px 12px;
+            border-radius: 10px;
+        }
+        audio { width: 100%; height: 36px; }
+
+        /* 历史记录 */
+        .history-box {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+        }
+        .history-box h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #cbd5e1; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(11, 15, 25, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .history-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 12px; color: #e2e8f0; }
+        .history-meta { color: var(--text-sub); margin-right: 12px; }
+        .history-play { background: rgba(255, 255, 255, 0.1); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+
+        /* 训练中心 Tab 面板 */
+        .training-container { display: none; width: 100%; }
+        .training-container.active { display: block; }
+
+        .train-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(12px);
+        }
+
+        .train-card h2 { font-size: 16px; font-weight: 700; color: #f8fafc; margin-bottom: 8px; }
+        .train-card p { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; line-height: 1.5; }
+
+        .engine-ctrl-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(11, 15, 25, 0.8);
+            border: 1px solid var(--card-border);
+            padding: 12px 18px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .engine-status-text { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+
+        .btn-group { display: flex; gap: 10px; }
+        .btn-train-action {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-train-action.stop { background: #ef4444; }
+        .btn-train-action.secondary { background: rgba(255, 255, 255, 0.1); color: var(--text-main); }
+        .btn-train-action:hover { opacity: 0.9; }
+
+        /* 数据集管理卡片 */
+        .dataset-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .dataset-card {
+            background: rgba(11, 15, 25, 0.7);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .dataset-card h4 { font-size: 14px; font-weight: 600; }
+        .dataset-count { font-size: 12px; color: #38bdf8; }
+        .btn-open-folder {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--card-border);
+            color: #cbd5e1;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-open-folder:hover { background: rgba(255, 255, 255, 0.15); color: white; }
+
+        /* 内嵌控制台 iFrame */
+        .iframe-container {
+            width: 100%;
+            height: 720px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            background: #111827;
+            position: relative;
+        }
+        iframe { width: 100%; height: 100%; border: none; }
+        .iframe-placeholder {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-sub);
+            gap: 12px;
+            background: rgba(11, 15, 25, 0.9);
+        }
+
+        /* 模型绑定条 */
+        .model-bind-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(11, 15, 25, 0.6);
+            border: 1px solid var(--card-border);
+            padding: 12px;
+            border-radius: 10px;
+        }
+        .model-bind-box select { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1>AI 娘声音工作台 · Voice Studio</h1>
+                <p>四大 AI 娘文字转语音 · RTX 5080 深度训练控制台一体化系统</p>
+            </div>
+            <div class="status-badge" id="gpu-status">
+                <span class="indicator" id="gpu-indicator"></span>
+                <span id="gpu-text">5080 离线服务检测中...</span>
+            </div>
+        </header>
+
+        <!-- 顶部主导航 Tab -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" id="tab-btn-tts" onclick="switchMainTab('tts')">
+                <span>🎙️ 语音合成工作台 (TTS Studio)</span>
+            </button>
+            <button class="nav-tab" id="tab-btn-train" onclick="switchMainTab('train')">
+                <span>🧠 5080 深度训练控制台 (Training Hub)</span>
+            </button>
+        </div>
+
+        <!-- ================= 面板 1: 发音工作台 ================= -->
+        <div id="panel-tts">
+            <!-- 角色卡片列表 -->
+            <div class="character-grid" id="char-grid"></div>
+
+            <!-- 主合成面板 -->
+            <div class="workbench">
+                <div class="input-header">
+                    <label id="input-label">让当前角色开口说话：</label>
+                    <button class="btn-link" id="btn-fill-quote">填入角色经典台词</button>
+                </div>
+                <textarea id="tts-text" placeholder="输入要转为语音的文字..."></textarea>
+
+                <div class="controls-row">
+                    <div class="control-group">
+                        <label>发音引擎模式</label>
+                        <select id="engine-select">
+                            <option value="auto">自动选择 (优先 5080 离线大模型)</option>
+                            <option value="edge">内置快速引擎 (开箱即用 · 免等待)</option>
+                            <option value="gpt_sovits">RTX 5080 深度克隆 (GPT-SoVITS)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>语速调节: <span id="speed-val">1.0x</span></label>
+                        <input type="range" id="speed-slider" min="0.7" max="1.4" step="0.05" value="1.0">
+                    </div>
+                    <div class="control-group">
+                        <label>音调偏移: <span id="pitch-val">0 Hz</span></label>
+                        <input type="range" id="pitch-slider" min="-8" max="8" step="1" value="0">
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-generate" id="btn-generate">
+                        <span>✨ 合成语音并播放</span>
+                    </button>
+                    <div class="audio-player-box">
+                        <audio id="audio-player" controls autoplay></audio>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 历史记录 -->
+            <div class="history-box">
+                <h3>最近生成记录</h3>
+                <div class="history-list" id="history-list">
+                    <div style="color: #64748b; font-size: 12px; text-align: center; padding: 12px;">暂无历史生成记录</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 面板 2: 5080 深度训练控制台 ================= -->
+        <div id="panel-train" class="training-container">
+            <div class="train-card">
+                <h2>⚡ RTX 5080 专属 GPT-SoVITS 深度微调引擎</h2>
+                <p>已为你打通伴奏剥离 (UVR5)、音频切片、Whisper 自动打标、特征提取与模型微调全套流程。在此启动引擎后，可直接在下方窗口完成整个训练！</p>
+
+                <!-- 引擎启停条 -->
+                <div class="engine-ctrl-bar">
+                    <div class="engine-status-text">
+                        <span class="indicator" id="train-indicator"></span>
+                        <b id="train-status-text">训练引擎：已就绪 (待启动)</b>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-train-action" id="btn-toggle-engine" onclick="toggleTrainingEngine()">⚡ 启动 5080 训练引擎</button>
+                        <button class="btn-train-action secondary" onclick="window.open('http://127.0.0.1:9874', '_blank')">🔗 独立新窗口全屏打开</button>
+                    </div>
+                </div>
+
+                <!-- 数据集快捷管理 -->
+                <h3 style="font-size: 14px; margin-bottom: 8px; color: #cbd5e1;">📁 各角色数据集快速管理 (点击打开文件夹直接放入 1~2 分钟音频)</h3>
+                <div class="dataset-grid" id="dataset-grid">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 内嵌训练控制台 -->
+            <div class="train-card" style="padding: 12px;">
+                <h3 style="font-size: 14px; margin-bottom: 8px; padding-left: 8px; color: #cbd5e1;">🖥️ GPT-SoVITS 训练控制台 (端口 9874)</h3>
+                <div class="iframe-container">
+                    <iframe id="train-iframe" src="about:blank"></iframe>
+                    <div class="iframe-placeholder" id="iframe-placeholder">
+                        <span style="font-size: 32px;">🧠</span>
+                        <p id="placeholder-text">训练引擎当前未启动，点击上方【启动 5080 训练引擎】按钮即可在此内嵌操作</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 训练模型一键绑定 -->
+            <div class="train-card">
+                <h2>🔗 训练成果一键绑定</h2>
+                <p>训练完成后，系统会自动扫描导出的权重文件。在此可直接将微调出的模型一键绑定到指定 AI 娘：</p>
+                <div class="model-bind-box">
+                    <select id="bind-role-select">
+                        <option value="deepseek">DeepSeek 娘</option>
+                        <option value="chatgpt">ChatGPT 娘</option>
+                        <option value="claude">Claude 娘</option>
+                        <option value="gemini">Gemini 娘</option>
+                    </select>
+                    <select id="bind-sovits-select"><option value="">-- 选择 SoVITS 权重 (.pth) --</option></select>
+                    <select id="bind-gpt-select"><option value="">-- 选择 GPT 权重 (.ckpt) --</option></select>
+                    <button class="btn-train-action" onclick="bindModelAction()">绑定并生效</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let characters = [];
+        let selectedCharId = "chatgpt";
+        let isEngineRunning = false;
+
+        const charGrid = document.getElementById("char-grid");
+        const ttsText = document.getElementById("tts-text");
+        const btnFillQuote = document.getElementById("btn-fill-quote");
+        const btnGenerate = document.getElementById("btn-generate");
+        const audioPlayer = document.getElementById("audio-player");
+        const engineSelect = document.getElementById("engine-select");
+        const speedSlider = document.getElementById("speed-slider");
+        const speedVal = document.getElementById("speed-val");
+        const pitchSlider = document.getElementById("pitch-slider");
+        const pitchVal = document.getElementById("pitch-val");
+        const gpuIndicator = document.getElementById("gpu-indicator");
+        const gpuText = document.getElementById("gpu-text");
+        const historyList = document.getElementById("history-list");
+        const trainIndicator = document.getElementById("train-indicator");
+        const trainStatusText = document.getElementById("train-status-text");
+        const btnToggleEngine = document.getElementById("btn-toggle-engine");
+        const trainIframe = document.getElementById("train-iframe");
+        const iframePlaceholder = document.getElementById("iframe-placeholder");
+        const datasetGrid = document.getElementById("dataset-grid");
+
+        speedSlider.oninput = () => speedVal.innerText = speedSlider.value + "x";
+        pitchSlider.oninput = () => pitchVal.innerText = (pitchSlider.value > 0 ? "+" : "") + pitchSlider.value + " Hz";
+
+        function switchMainTab(tab) {
+            document.getElementById("tab-btn-tts").classList.toggle("active", tab === "tts");
+            document.getElementById("tab-btn-train").classList.toggle("active", tab === "train");
+            document.getElementById("panel-tts").style.display = (tab === "tts" ? "block" : "none");
+            document.getElementById("panel-train").style.display = (tab === "train" ? "block" : "none");
+
+            if (tab === "train") {
+                refreshDatasets();
+                scanModels();
+            }
+        }
+
+        async function init() {
+            try {
+                const [charsRes, statusRes] = await Promise.all([
+                    fetch("/api/characters").then(r => r.json()),
+                    fetch("/api/status").then(r => r.json())
+                ]);
+                characters = charsRes;
+                renderCharacters();
+                updateStatus(statusRes);
+                refreshDatasets();
+                scanModels();
+
+                // 轮询检查状态
+                setInterval(checkSystemStatus, 5000);
+            } catch (err) {
+                console.error("Init error:", err);
+            }
+        }
+
+        async function checkSystemStatus() {
+            try {
+                const status = await fetch("/api/status").then(r => r.json());
+                updateStatus(status);
+            } catch(e) {}
+        }
+
+        function updateStatus(status) {
+            // 5080 发音推理状态
+            if (status.gpt_sovits && status.gpt_sovits.available) {
+                gpuIndicator.className = "indicator online";
+                gpuText.innerText = "RTX 5080 推理服务在线 (9880 端口)";
+            } else {
+                gpuIndicator.className = "indicator";
+                gpuText.innerText = "5080 发音服务未开启 (自动无缝切换快速引擎)";
+            }
+
+            // 5080 训练 WebUI 状态
+            const trainStatus = status.training_webui;
+            if (trainStatus && trainStatus.available) {
+                isEngineRunning = true;
+                trainIndicator.className = "indicator online";
+                trainStatusText.innerText = "训练引擎：运行中 (端口 9874)";
+                btnToggleEngine.innerText = "⏹ 停止训练引擎";
+                btnToggleEngine.className = "btn-train-action stop";
+                if (trainIframe.src === "about:blank" || !trainIframe.src.includes("9874")) {
+                    trainIframe.src = "http://127.0.0.1:9874";
+                    iframePlaceholder.style.display = "none";
+                }
+            } else {
+                isEngineRunning = false;
+                trainIndicator.className = "indicator";
+                trainStatusText.innerText = "训练引擎：已就绪 (待启动)";
+                btnToggleEngine.innerText = "⚡ 启动 5080 训练引擎";
+                btnToggleEngine.className = "btn-train-action";
+                if (trainIframe.src !== "about:blank") {
+                    trainIframe.src = "about:blank";
+                }
+                iframePlaceholder.style.display = "flex";
+            }
+        }
+
+        async function toggleTrainingEngine() {
+            const action = isEngineRunning ? "stop" : "start";
+            btnToggleEngine.disabled = true;
+            btnToggleEngine.innerText = action === "start" ? "⏳ 正在拉起 5080 内核..." : "⏳ 正在停止...";
+
+            try {
+                const res = await fetch("/api/training/toggle", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: action })
+                }).then(r => r.json());
+
+                // 3秒后刷新状态
+                setTimeout(checkSystemStatus, 3000);
+            } catch (err) {
+                alert("操作失败: " + err.message);
+            } finally {
+                btnToggleEngine.disabled = false;
+            }
+        }
+
+        async function refreshDatasets() {
+            try {
+                const data = await fetch("/api/dataset/status").then(r => r.json());
+                datasetGrid.innerHTML = "";
+                const names = { chatgpt: "ChatGPT 娘", claude: "Claude 娘", gemini: "Gemini 娘", deepseek: "DeepSeek 娘" };
+                for (const role in data) {
+                    const item = data[role];
+                    const card = document.createElement("div");
+                    card.className = "dataset-card";
+                    card.innerHTML = `
+                        <div>
+                            <h4>${names[role] || role}</h4>
+                            <div class="dataset-count">已放入: <b>${item.count}</b> 个音频文件</div>
+                        </div>
+                        <button class="btn-open-folder" onclick="openFolder('${role}')">📂 打开音频文件夹</button>
+                    `;
+                    datasetGrid.appendChild(card);
+                }
+            } catch (e) {}
+        }
+
+        async function openFolder(role) {
+            await fetch("/api/dataset/open", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: role })
+            });
+        }
+
+        async function scanModels() {
+            try {
+                const res = await fetch("/api/models/scan").then(r => r.json());
+                const sovitsSel = document.getElementById("bind-sovits-select");
+                const gptSel = document.getElementById("bind-gpt-select");
+
+                sovitsSel.innerHTML = '<option value="">-- 选择 SoVITS 权重 (.pth) --</option>';
+                (res.sovits || []).forEach(w => {
+                    sovitsSel.innerHTML += `<option value="${w.path}">${w.name}</option>`;
+                });
+
+                gptSel.innerHTML = '<option value="">-- 选择 GPT 权重 (.ckpt) --</option>';
+                (res.gpt || []).forEach(w => {
+                    gptSel.innerHTML += `<option value="${w.path}">${w.name}</option>`;
+                });
+            } catch(e) {}
+        }
+
+        async function bindModelAction() {
+            const role = document.getElementById("bind-role-select").value;
+            const sovits = document.getElementById("bind-sovits-select").value;
+            const gpt = document.getElementById("bind-gpt-select").value;
+
+            if (!sovits || !gpt) {
+                alert("请先选择要绑定的 SoVITS 权重和 GPT 权重！");
+                return;
+            }
+
+            const res = await fetch("/api/models/bind", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: role, sovits_path: sovits, gpt_path: gpt })
+            }).then(r => r.json());
+
+            if (res.success) {
+                alert(res.message);
+                init();
+            } else {
+                alert("绑定失败: " + res.error);
+            }
+        }
+
+        function renderCharacters() {
+            charGrid.innerHTML = "";
+            characters.forEach(c => {
+                const card = document.createElement("div");
+                card.className = "char-card" + (c.id === selectedCharId ? " active" : "");
+                card.dataset.id = c.id;
+
+                const tagsHtml = (c.tags || []).map(t => `<span class="tag">${t}</span>`).join("");
+                const initial = c.name.charAt(0);
+
+                card.innerHTML = `
+                    <div>
+                        <div class="char-header">
+                            <div class="char-icon">${initial}</div>
+                            <div>
+                                <div class="char-name">${c.name}</div>
+                                <div class="char-archetype">${c.archetype}</div>
+                            </div>
+                        </div>
+                        <div class="char-desc">${c.description}</div>
+                        <div class="char-tags">${tagsHtml}</div>
+                    </div>
+                    <button class="btn-preview" onclick="event.stopPropagation(); playSample('${c.id}')">
+                        <span>🔊 试听人设音</span>
+                    </button>
+                `;
+
+                card.onclick = () => selectCharacter(c.id);
+                charGrid.appendChild(card);
+            });
+            updateQuoteButton();
+        }
+
+        function selectCharacter(id) {
+            selectedCharId = id;
+            document.querySelectorAll(".char-card").forEach(c => {
+                c.classList.toggle("active", c.dataset.id === id);
+            });
+            updateQuoteButton();
+        }
+
+        function updateQuoteButton() {
+            const cur = characters.find(c => c.id === selectedCharId);
+            if (cur) {
+                btnFillQuote.innerText = `填入 ${cur.name} 经典台词`;
+            }
+        }
+
+        btnFillQuote.onclick = () => {
+            const cur = characters.find(c => c.id === selectedCharId);
+            if (cur && cur.default_quote) {
+                ttsText.value = cur.default_quote;
+            }
+        };
+
+        function playSample(charId) {
+            audioPlayer.src = `/audio/sample/${charId}`;
+            audioPlayer.play();
+        }
+
+        btnGenerate.onclick = async () => {
+            const text = ttsText.value.trim();
+            if (!text) {
+                alert("请输入需要转换的文字内容！");
+                return;
+            }
+
+            btnGenerate.disabled = true;
+            btnGenerate.innerText = "⏳ 正在生成语音...";
+
+            try {
+                const res = await fetch("/api/tts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        character_id: selectedCharId,
+                        text: text,
+                        engine: engineSelect.value,
+                        speed: parseFloat(speedSlider.value),
+                        pitch: parseInt(pitchSlider.value)
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    audioPlayer.src = data.url;
+                    audioPlayer.play();
+                    addHistory(data.character_name, text, data.url, data.used_engine);
+                } else {
+                    alert("合成失败: " + (data.error || "未知错误"));
+                }
+            } catch (err) {
+                alert("请求出错: " + err.message);
+            } finally {
+                btnGenerate.disabled = false;
+                btnGenerate.innerText = "✨ 合成语音并播放";
+            }
+        };
+
+        function addHistory(charName, text, url, engine) {
+            if (historyList.children.length === 1 && historyList.children[0].innerText.includes("暂无")) {
+                historyList.innerHTML = "";
+            }
+            const item = document.createElement("div");
+            item.className = "history-item";
+            const engineLabel = engine === "gpt_sovits" ? "5080大模型" : "快速引擎";
+            item.innerHTML = `
+                <div class="history-text"><b>[${charName}]</b>: ${text}</div>
+                <div class="history-meta">${engineLabel}</div>
+                <button class="history-play" onclick="audioPlayer.src='${url}'; audioPlayer.play();">▶ 播放</button>
+            `;
+            historyList.prepend(item);
+        }
+
+        init();
+    </script>
+</body>
+</html>

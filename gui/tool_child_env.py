@@ -33,4 +33,33 @@ def host_environment(workspace):
 
 
 bash_tool._host_environment=host_environment
+
+
+def install_output_archive():
+    if not os.environ.get('ROOM_OUTPUT_PREVIEW') or not os.environ.get('ROOM_DATABASE'):return
+    import threading
+    from output_archive import present_environment
+    from deepseek_mcp import tools
+    local=threading.local();original_run=bash_tool._run_on_trusted_host;original_format=bash_tool._format_result
+    original_execute=bash_tool.execute_bash
+    # Keep the upstream process/cancellation boundary; capture before its formatter truncates.
+    bash_tool.MAX_STREAM_BYTES=8_000_000
+    def run(command,config,timeout):
+        result=original_run(command,config,timeout)
+        text=f'[exit {result.returncode}]\n--- stdout ---\n'+result.stdout.decode('utf-8',errors='replace')
+        if result.stderr:text+='\n--- stderr ---\n'+result.stderr.decode('utf-8',errors='replace')
+        complete=result.stdout_total==len(result.stdout) and result.stderr_total==len(result.stderr)
+        local.preview=present_environment(command,result.returncode,text,'bash',complete)
+        return result
+    def formatted(result):return getattr(local,'preview',None) or original_format(result)
+    def execute(*args,**kwargs):
+        local.preview=None
+        result=original_execute(*args,**kwargs)
+        if local.preview and result.startswith('ERROR: command timed out'):return result+'\n'+local.preview
+        return result
+    bash_tool._run_on_trusted_host=run;bash_tool._format_result=formatted
+    bash_tool.execute_bash=tools.execute_bash=execute
+
+
+install_output_archive()
 if __name__=='__main__':tool_child.main()

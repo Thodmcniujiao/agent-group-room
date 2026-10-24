@@ -1,0 +1,21 @@
+{
+  "id": "chatgpt",
+  "name": "ChatGPT 娘",
+  "archetype": "知性少御 / 团队长女 / 优雅秘书",
+  "description": "成熟从容的大姐姐形象，语调温婉端庄、条理清晰，充满包容感与可靠感。",
+  "tags": ["知性", "温婉", "大姐姐", "少御音"],
+  "default_quote": "我是 ChatGPT。今天有什么项目或疑问需要我为您分析吗？请放心交给我吧。",
+  "edge_tts": {
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "rate": "+0%",
+    "pitch": "+0Hz",
+    "volume": "+0%"
+  },
+  "gpt_sovits": {
+    "sovits_path": "models/chatgpt_sovits.pth",
+    "gpt_path": "models/chatgpt_gpt.ckpt",
+    "ref_audio": "characters/chatgpt/reference.wav",
+    "prompt_text": "今天有什么我可以协助您的吗？",
+    "prompt_lang": "zh"
+  }
+}

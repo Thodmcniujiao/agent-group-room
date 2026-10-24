@@ -1,0 +1,23 @@
+{
+  "backup": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\backups\\host-git-init-20261022-163726Z",
+  "started_utc": "2026-10-22T16:37:26.836570+00:00",
+  "rooms": 6,
+  "messages": 152,
+  "rooms_sha256": "d1778fa47d6f516627f0beff764558828ca3b0ac91939026a583db2760d1a7f7",
+  "messages_sha256": "81d4b3e85a252542d16a109ed5a3eb1777bbedb87a74322853aaacc27efd07cc",
+  "protected_sha256": {},
+  "active_rooms": [],
+  "tested_source_hashes_verified": 77,
+  "health": {
+    "service": "tiered-dev-gui",
+    "version": "0.12.3"
+  },
+  "after": {
+    "rooms": 6,
+    "messages": 152,
+    "rooms_unchanged": true,
+    "messages_unchanged": true,
+    "protected_files_unchanged": true
+  },
+  "finished_utc": "2026-10-22T16:38:10.520203+00:00"
+}

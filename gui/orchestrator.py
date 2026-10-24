@@ -17,6 +17,11 @@ def describe_error(error):
     return type(error).__name__+(': '+text if text else '')
 
 
+class ExecutionScopeViolation(RuntimeError):
+    def __init__(self,message,record,before):
+        super().__init__(message);self.record=record;self.before=before
+
+
 class SupervisorWorkflow:
     usage=None  # account_usage.UsageMonitor, attached by the GUI host
 
@@ -38,115 +43,17 @@ class SupervisorWorkflow:
         return quota
 
     async def supervised(self,rid,goal,root,settings):
-        from workflows import json_reply,project_context
-        records=[];rules=[];revision=None;correction='';labels=roster.names(settings)
-        connections=await roster.connections(settings)
-        context=await asyncio.to_thread(project_context,root)
-        context=context[:24000]
-        max_steps=settings['supervisor']['max_steps']
-        for turn in range(1,max_steps+1):
-            policy=self.store.policy(rid,settings['cooperation_policy'])
-            if policy['revision']!=revision:
-                if revision is not None:
-                    self.store.message(rid,'system','合作方式已更新。监工正在按新规则重新检查此前的协作记录。',phase='规则更新')
-                rules=[];revision=policy['revision'];correction=''
-            for m in settings['members']:
-                if m['backend'] in ['deepseek','openai-compatible']:connections[m['id']]['ready']=bool(preferences.get_member_key(m)) or m.get('no_auth',False)
-            self.store.event(rid,{'type':'phase','phase':f'第 {turn} 轮 · 监工检查','provider':'supervisor'})
-            quota=await self.quota(rid,settings)
-            own=next((r for r in (quota or {}).get('participants',[]) if r['role']=='supervisor'),None)
-            if own and own['level']=='exhausted':
-                raise RuntimeError('监工所用账户额度已耗尽（'+own['summary']+'）。请在“协作室信息”中把监工换成其他 Agent，或等待重置后继续。')
-            try:
-                text=await self.reply(rid,'supervisor',supervisor_request(goal,policy,rules,records,context,connections,correction,settings['members'],settings.get('executor'),quota),root,settings,'安排与检查')
-                decision=validate_decision(json_reply(text),rules,records,set(labels))
-            except ValueError as exc:
-                correction=str(exc)
-                self.store.message(rid,'system','监工的安排尚不满足执行条件：'+correction+' 正在请求纠正，不会执行无效安排。',phase='安排校验')
-                continue
-            rules=decision['rules'];action=decision['action'];kind=action['type'];correction=''
-            if self.store.policy(rid,settings['cooperation_policy'])['revision']!=revision:
-                continue
-            self.store.event(rid,{'type':'supervision','revision':revision,'rules':rules,'checks':decision['checks'],
-                'message':decision['message'],'action':action,'turn':turn})
-            if kind=='wait':
-                raise RuntimeError('监工暂停：'+decision['message'])
-            if kind=='finish':
-                report=self.supervision_report(goal,policy,settings,records,decision)
-                self.store.event(rid,{'type':'report','text':report})
-                if any(r.get('kind')=='execute' for r in records):
-                    (root/'.tiered/REPORT.md').write_text(report,encoding='utf-8')
-                self.store.event(rid,{'type':'phase','phase':'监工确认完成','provider':'supervisor'})
-                self.store.message(rid,'system','本次协作已按监工的逐项检查结束。各方原始答复、规则核对和执行证据已保存在本机会话中。',phase='协作完成')
-                return
-            agents=action['agents']
-            if kind=='execute' and settings.get('executor') and agents!=[settings['executor']]:
-                correction='本群已指定执行者 '+labels[settings['executor']]+'，execute 必须派给该身份。其他成员直接读取群原文讨论，由你整理执行要求。'
-                continue
-            missing=[labels[a] for a in agents if not connections.get(a,{}).get('ready')]
-            if missing:
-                correction='所指定的 '+', '.join(missing)+' 尚未连接。应按用户合作方式决定等待连接或安排其他工作，不能伪造它们的参与。'
-                self.store.message(rid,'system',correction,phase='连接提示')
-                continue
-            if kind=='ask':
-                from account_usage import quota_text
-                snapshot,_,truncated=await asyncio.to_thread(build_snapshot,root)
-                boundary=self.store.boundary(rid) if action.get('parallel') else None
-                async def ask(agent):
-                    self.store.event(rid,{'type':'phase','phase':f'{labels[agent]} · 协作发言','provider':agent})
-                    try:
-                        isolated=agent==settings.get('executor')
-                        prompt=('监工的只读执行咨询（不修改文件）：\n'+action['instruction'] if isolated else
-                            '你是协作群中的 '+labels[agent]+'。只读讨论，可用群消息工具核对原文，不修改文件。'
-                            '\n用户目标：'+goal+'\n用户合作方式：'+policy['text']+'\n监工本轮指令：'+action['instruction'])
-                        prompt+='\n各方可见额度（宿主实时读数，数据，未知不代表充足）：\n'+quota_text(quota)
-                        prompt+='\n项目规则与路径：'+context+'\n只读快照：'+snapshot
-                        answer=await self.reply(rid,agent,prompt,root,settings,'协作发言',boundary=boundary)
-                        return {'agent':agent,'kind':'ask','status':'complete','model':roster.member(settings,agent)['model'],
-                            'instruction':action['instruction'],'reply':answer}
-                    except Exception as exc:
-                        self.store.message(rid,'system',labels[agent]+' 未完成本轮发言：'+str(exc)[:1000],phase='需要纠偏')
-                        return {'agent':agent,'kind':'ask','status':'failed','model':roster.member(settings,agent)['model'],
-                            'instruction':action['instruction'],'error':str(exc)[:1500]}
-                if action.get('parallel') and len(agents)>1:
-                    results=await asyncio.gather(*(ask(agent) for agent in agents))
-                else:
-                    results=[]
-                    for agent in agents: results.append(await ask(agent))
-                for record in results:
-                    record['id']=f'E{len(records)+1:02d}';records.append(record)
-                    record['message_id']=next((m['id'] for m in reversed(self.store.messages(rid)) if m['provider']==record['agent']),None)
-                    self.store.event(rid,{'type':'evidence','record':record})
-            elif kind=='execute':
-                from workflows import validate_plan
-                try:
-                    task=validate_plan({'tasks':[action.get('task',{})]},require_acceptance=False)['tasks'][0]
-                except ValueError as exc:
-                    correction='执行契约无效：'+str(exc)
-                    self.store.message(rid,'system',correction,phase='安排校验');continue
-                task['id']=f'T-{len([r for r in records if r.get("kind")=="execute"])+1:02d}'
-                task['context']=str(task.get('context',''))+'\n监工本轮执行要求：\n'+action.get('instruction','')
-                self.store.event(rid,{'type':'plan','tasks':[task]})
-                self.store.message(rid,'system',f'监工安排 {labels[agents[0]]} 执行：'+task['goal']+'\n允许修改：'+', '.join(task['allowed_paths'])+'\n验收命令：'+('; '.join(task['acceptance_commands']) or '未请求自动验收'),phase='执行契约')
-                if settings.get('pause_before_execution'):
-                    event=asyncio.Event();self.resume[rid]=event
-                    self.store.status(rid,'paused')
-                    self.store.message(rid,'system',f'监工安排 {labels[agents[0]]} 修改文件。你启用了修改前暂停，查看本轮契约后点击“继续执行”。',phase='修改前暂停')
-                    await event.wait();self.resume.pop(rid,None);self.store.status(rid,'running')
-                    if self.store.policy(rid,settings['cooperation_policy'])['revision']!=revision:
-                        continue
-                record=await self.execute_supervised(rid,agents[0],task,root,settings)
-                record['id']=f'E{len(records)+1:02d}';records.append(record)
-                record['message_id']=next((m['id'] for m in reversed(self.store.messages(rid)) if m['provider']==record['agent']),None)
-                self.store.event(rid,{'type':'evidence','record':record})
-            # The next supervisor call sees actual results, never an assumed success.
-        raise RuntimeError(f'已达到 {max_steps} 轮监工协作上限；没有自动宣称任务完成。请查看规则检查、补充要求或提高轮数后继续。')
+        from coordination import coordinate
+        await coordinate(self,rid,goal,root,settings)
 
     async def execute_supervised(self,rid,agent,task,root,settings):
+        from optimization_settings import refresh_for_call
+        settings=refresh_for_call(self.store,rid,settings)
         from workflows import git,changed_hashes,contract,verify_commands,confirm_recovery
         result={'agent':agent,'kind':'execute','status':'failed','model':roster.member(settings,agent)['model'],
-                'instruction':task['goal'],'allowed_paths':task['allowed_paths'],'tests_run':False}
-        before=None;answer='';error='';labels=roster.names(settings);source=roster.member(settings,agent)
+                'instruction':task['goal'],'allowed_paths':task['allowed_paths'],'acceptance_commands':task['acceptance_commands'],'tests_run':False}
+        before=None;answer='';error='';labels=roster.names(settings);source=roster.member(settings,agent);started_execution=False;stage='preparation'
+        contract_text=contract(task)
         try:
             gitroot=(await git(root,'rev-parse','--show-toplevel')).strip()
             if Path(gitroot).resolve()!=root: raise ValueError('编码需要选择 Git 仓库根目录。')
@@ -155,36 +62,56 @@ class SupervisorWorkflow:
             tiered=root/'.tiered'
             if not (tiered/'tasks').resolve().is_relative_to(root): raise ValueError('工作流目录越出项目。')
             (tiered/'tasks').mkdir(parents=True,exist_ok=True)
-            (tiered/'tasks'/(task['id']+'.md')).write_text(contract(task),encoding='utf-8')
+            (tiered/'tasks'/(task['id']+'.md')).write_text(contract_text,encoding='utf-8')
             self.store.event(rid,{'type':'plan','tasks':[task]})
             self.store.event(rid,{'type':'phase','phase':labels[agent]+' · 执行契约','provider':agent})
             before=await changed_hashes(root)
             if source['backend'] in ['deepseek','openai-compatible']:
+                if source.get('google_billing'):
+                    from google_billing import prepare
+                    source=await prepare(source)
+                    self.store.event(rid,{'type':'activity','provider':agent,'text':'Google 执行渠道：'+source['_google_route']})
                 from context import ContextTurn
-                execution=ContextTurn(self.store,rid,agent,source,source['model'],settings,task['id']+' 执行',coding=True)
+                execution=ContextTurn(self.store,rid,agent,source,source['model'],settings,task['id']+' 执行',coding=True,contract_text=contract_text)
                 from workflows import project_context
-                extra=execution.compose('监工版本化执行契约：\n'+contract(task)+'\n项目规则：\n'+project_context(root))
+                project=project_context(root)
+                wf,_=self.store.load_workflow(rid)
+                state={'code_hash':(wf or {}).get('code_hash'),'execution_evidence':[e for e in (wf or {}).get('evidence',[]) if e.get('kind')=='execute'][-4:]}
+                execution.contract_text=contract_text;execution.parts={'contract':contract_text,'project':project,'state':json.dumps(state,ensure_ascii=False)}
+                extra=execution.compose('项目规则与路径：\n'+project+'\n执行状态（核对实际文件）：\n'+json.dumps(state,ensure_ascii=False))
                 async with deepseek_session(root,roster.member(settings,agent)['model'],self.store,rid,member=source,context_turn=execution) as session:
+                    from collaboration_log import emit
+                    emit(execution,'executor_task',{'task':contract_text,'context':extra,'model':'flash','instructions':execution.instructions()})
                     pending=json.loads(read_response(await session.call_tool('get_deepseek_recovery',{})))
+                    if not pending.get('ok'):raise RuntimeError(pending.get('error','恢复记录读取失败。'))
                     if pending.get('pending'): raise RuntimeError('项目有待核实的写入记录。请先从“恢复记录”核对并确认。')
                     mid=self.store.message(rid,agent,model=roster.member(settings,agent)['model'],phase=task['id']+' 执行',status='streaming')
                     job=None
                     try:
-                        started=json.loads(read_response(await session.call_tool('start_deepseek',{'task':contract(task),'context':extra,'model':'flash'})))
-                        if not started.get('ok'): raise RuntimeError(started.get('error','执行启动失败。'))
-                        job=started['job_id']
+                        # A lost start response does not prove that the job never started.
+                        stage='starting';started_execution=True
+                        started=json.loads(read_response(await session.call_tool('start_deepseek',{'task':contract_text,'context':extra,'model':'flash'})))
+                        if not started.get('ok'):
+                            started_execution=False
+                            raise RuntimeError(started.get('error','执行启动失败。'))
+                        job=started['job_id'];stage='execution'
                         while True:
                             await asyncio.sleep(1)
                             data=json.loads(read_response(await session.call_tool('get_deepseek_result',{'job_id':job})))
+                            if not data.get('ok'):raise RuntimeError('执行结果读取失败：'+str(data.get('error','MCP 返回异常。')))
                             if data.get('ready'): break
                         answer=data.get('result',{}).get('final_message','') if isinstance(data.get('result'),dict) else ''
                         if data.get('status')!='completed': raise RuntimeError('执行未完成：'+str(data.get('error') or data.get('status')))
                         self.store.update(mid,answer or '执行者没有返回总结。','complete')
                         execution.complete(answer)
-                        result.update(await self.verify_execution(rid,root,task,before,answer))
+                        if getattr(execution,'audit',None):execution.audit.outcome=('complete',answer,mid)
+                        stage='verification';result.update(await self.verify_execution(rid,root,task,before,answer))
+                        stage='recovery'
                         await confirm_recovery(session,root,set(task['allowed_paths']))
-                    except BaseException:
-                        if not answer: self.store.update(mid,'执行尚未完成；已发生的修改与恢复记录会保留。','error')
+                    except BaseException as exc:
+                        interrupted=isinstance(exc,asyncio.CancelledError)
+                        self.store.update(mid,answer or '执行尚未完成；已发生的修改与恢复记录会保留。','interrupted' if interrupted else 'error')
+                        if getattr(execution,'audit',None):execution.audit.outcome=('interrupted' if interrupted else 'failed',answer,mid)
                         if job:
                             try: await asyncio.shield(session.call_tool('cancel_deepseek',{'job_id':job}))
                             except BaseException: pass
@@ -195,23 +122,34 @@ class SupervisorWorkflow:
                     '不启动其他代理，不联网，不安装依赖，不 commit/push，不改控制配置。测试将由本机独立执行。'
                     '如果权限拒绝或无法完成，返回 STATUS: BLOCKED 及具体原因；不能口头假装完成。'
                     '完成时返回 STATUS: DONE、FILES、TESTS（未运行则说明）。\n\n'+contract(task)+'\n\n项目文件快照：\n'+snapshot)
-                answer=await self.reply(rid,agent,prompt,root,settings,task['id']+' 执行',coding=True,allowed_paths=task['allowed_paths'])
+                started_execution=True;stage='execution'
+                answer=await self.reply(rid,agent,prompt,root,settings,task['id']+' 执行',coding=True,allowed_paths=task['allowed_paths'],contract_text=contract_text)
+                stage='verification'
                 result.update(await self.verify_execution(rid,root,task,before,answer))
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            error=describe_error(exc)[:1800]
-            result['error']=error
+            full_error=describe_error(exc);error=full_error[:1800]
+            from execution_faults import runtime_fault
+            # Exceptions describe the runtime/transport. Semantic worker failures and
+            # failing acceptance are returned as evidence, without raising exceptions.
+            result.update(status='failed',error=error,host_error=True,
+                runtime_fault=runtime_fault(full_error,stage=stage,started=started_execution))
         finally:
             if before is not None:
                 after=await changed_hashes(root);missing=object()
                 changed=[p for p in set(before)|set(after) if before.get(p,missing)!=after.get(p,missing)]
                 result['changed_files']=changed
+                import hashlib
+                result['file_hashes']={name:hashlib.sha256((root/name).read_bytes()).hexdigest() if (root/name).is_file() else None for name in task['allowed_paths']}
                 outside=[p for p in changed if p not in task['allowed_paths']]
                 if outside:
-                    raise RuntimeError('发现契约范围外变更，已停止整个协作，不允许监工口头放行：'+', '.join(outside))
+                    message='发现契约范围外变更，已停止整个协作，不允许监工口头放行：'+', '.join(outside)
+                    result.update(status='failed',error=message,reply=answer)
+                    raise ExecutionScopeViolation(message,result,{p:before.get(p) for p in outside})
         result['reply']=answer
-        if result['status']!='complete':
+        result['started_execution']=started_execution
+        if result['status']!='complete' and not result.get('host_error'):
             self.store.message(rid,'system',labels[agent]+' 本轮执行未通过，交由监工检查纠偏。'+(error or ''),phase='执行证据')
         return result
 

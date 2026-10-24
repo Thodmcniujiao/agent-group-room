@@ -1,0 +1,10 @@
+{
+  "version": "0.1.2",
+  "syntax_checked": {
+    "python": 95,
+    "javascript": 17,
+    "json": 137
+  },
+  "voice_readonly_smoke": "page, four character profiles and sample audio passed",
+  "live_inference": false
+}

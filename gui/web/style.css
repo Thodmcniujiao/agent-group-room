@@ -482,4 +482,7 @@ dialog textarea{width:100%;padding:10px 11px;font-size:13px;line-height:1.7}
   .debug-options{grid-template-columns:minmax(0,1fr) 110px}
   .identity-settings{flex-wrap:wrap}
 }
+.room-member-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0}
+.room-member-identity .avatar{width:48px;height:48px}
+.room-member-identity small{flex-basis:100%}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

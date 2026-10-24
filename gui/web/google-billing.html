@@ -1,0 +1,13 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Google 渠道与余额 · Agent Group Room</title><link rel="stylesheet" href="google-billing.css"></head><body><main>
+<a href="/">← 返回协作室</a><h1>Google 调用渠道与余额</h1><p>优先使用适用的 Cloud 赠金，再选择 Gemini API 预付余额。余额未知或过期时，自动模式暂停请求，等待同步。</p>
+<section><h2>1 · 连接 Google 项目</h2><form id="form"><label>已保存的 Gemini Agent<select id="agent" required></select></label><p>先在 Agent 管理保存官方 Gemini 连接，基础地址填写 https://generativelanguage.googleapis.com/v1beta/openai。</p>
+<label>调用方式<select id="mode"><option value="developer">Gemini API（手动指定）</option><option value="vertex">Vertex AI（手动指定）</option><option value="auto">按已确认余额自动选择</option></select></label>
+<div class="grid"><label>项目 ID<input id="project" placeholder="项目 ID，不是显示名称"></label><label>结算账号 ID<input id="account" placeholder="XXXXXX-XXXXXX-XXXXXX"></label><label>区域<input id="location" value="global"></label></div>
+<p>Vertex 使用本机 Google Cloud 凭据。安装 Google Cloud CLI 后运行：</p><pre>gcloud auth application-default login</pre><p id="adc"></p><p>需要启用 aiplatform.googleapis.com 和 cloudbilling.googleapis.com；登录身份需要项目的模型调用权限、结算账号读取权限。自动切到 Developer 时还会核对 API Key 所属项目。</p>
+<button type="button" id="verify">核验项目与结算账号</button> <button type="submit">保存调用方式</button></form></section>
+<section><h2>2 · 同步余额与赠金</h2><p>Google 公开结算 API 不返回控制台里的完整剩余赠金与 AI Studio 预付余额。使用配套浏览器扩展，从你登录的官方账单页读取。</p>
+<ol><li>在 Chrome / Edge 的扩展管理中打开开发者模式，选择「加载已解压的扩展」，加载下方目录。</li><li>点击下方「与已安装扩展配对」，启用每 5 分钟刷新账单页；也可在扩展弹窗中手动配置。</li><li>打开下方 Cloud 赠金页或 AI Studio 账单页，确认完整赠金 ID、币种、适用范围和到期日期显示。AI Studio 页面须显示结算账号 ID；扩展会读取其中 Google Payments 内嵌账单的预付余额，并核对两个页面的账号一致。</li></ol>
+<label>扩展目录<input id="extension" readonly></label><label>本机地址<input id="origin" readonly></label><label>配对码<input id="pairing" type="password" readonly></label><button id="pair-extension" type="button">与已安装扩展配对，并启用每 5 分钟刷新账单页</button> <button id="copy" type="button">复制配对码</button> <button id="rotate" type="button">重置配对码</button>
+<p>配对码只允许扩展向本机写入余额，不能读取聊天和 API 密钥。浏览器登录状态保留在浏览器内。</p><p><a id="credits" target="_blank" rel="noreferrer">打开 Cloud 赠金页 ↗</a> · <a href="https://aistudio.google.com/billing" target="_blank" rel="noreferrer">打开 AI Studio 账单页 ↗</a></p></section>
+<section><h2>3 · 当前读数</h2><button id="refresh" type="button">刷新读数</button><p>快照有效期为 10 分钟。账单数据可能延迟；这不是扣费硬上限。手动指定渠道按 Google 正常计费，余额不足时可能从付款方式扣款。</p><div id="reading"></div><details><summary>来源记录、适用范围与过期记录</summary><pre id="raw"></pre></details></section>
+<p id="status" role="status"></p></main><script src="google-billing.js" type="module"></script></body></html>

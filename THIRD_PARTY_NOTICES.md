@@ -6,6 +6,10 @@ This application installs third-party dependencies; it does not claim their auth
 
 The coding executor is **PsChina/deepseek-as-subagent** (MIT), pinned to commit `7e54026392f85ccfc796f947faf9ffac3968a49e`. Its original copyright and license notice are preserved in the license directory. Agent Room and codex-review-server were inspected only and are not installed or copied into this application. Their exact inspected revisions are documented in `sources.lock.json`.
 
+The version-controlled `gui/executor_limits.py` adapter extends that executor's explicit output-token validator from its 16,384 ceiling to the application's 128,000 range, in both the MCP host and hardened provider child. The installed dependency and its defaults, process isolation, transaction recovery, cancellation, response-byte limits and tool boundaries are unchanged. Room output settings are passed explicitly; provider-side limits still apply.
+
+The optional Voice Studio uses [edge-tts](https://github.com/rany2/edge-tts) 7.3.1 for online speech synthesis; its packaged license is preserved in [third_party/licenses/edge-tts/LICENSE](third_party/licenses/edge-tts/LICENSE). It can also connect to an independently installed [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) service. GPT-SoVITS source checkouts, runtime bundles, models and training data are not distributed in this repository; their upstream terms apply when separately downloaded.
+
 | Distribution | Tested version | License metadata | Original license files |
 |---|---|---|---|
 | annotated-doc | 0.0.5 | MIT | [texts](third_party/licenses/annotated-doc/) |
@@ -65,6 +69,7 @@ The coding executor is **PsChina/deepseek-as-subagent** (MIT), pinned to commit 
 | typer | 0.27.1 | MIT | [texts](third_party/licenses/typer/) |
 | typing-inspection | 0.4.4 | MIT | [texts](third_party/licenses/typing-inspection/) |
 | typing_extensions | 4.16.0 | PSF-2.0 | [texts](third_party/licenses/typing_extensions/) |
+| tzdata | 2026.5 | Apache-2.0; IANA timezone data public domain | [texts](third_party/licenses/tzdata/) |
 | uvicorn | 0.52.4 | BSD-3-Clause | [texts](third_party/licenses/uvicorn/) |
 
 Package source links and exact file paths are listed in [third_party/dependencies.json](third_party/dependencies.json). No license from this table is automatically assigned to the new application code; see [LICENSE_STATUS.md](LICENSE_STATUS.md).

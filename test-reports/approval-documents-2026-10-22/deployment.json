@@ -1,0 +1,37 @@
+{
+  "backup": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\backups\\approval-documents-20261022-162053Z",
+  "rooms": 6,
+  "messages": 143,
+  "rooms_sha256": "fe4e8a4659c1632b5350020166061d01429a4444b6addd16079023b799124eab",
+  "messages_sha256": "d2c1e4b89a9d1a515d6b8576ba3a054e7068f0eee2a1e392e42b37aae5f2e18d",
+  "protected_sha256": {
+    "preferences.json": "8aa4fbaa481b5de281a51e16216fefbd99c1fcb2cab9aa2e2e92cc7a953e9942",
+    "deepseek.dpapi": "9fcbc95af988214c060fc3ecdbca164509b63bbaab250ff50114524ee0e6e83d",
+    "credentials\\deepseek.dpapi": "4e8c143082fabf9b0d9b6dc885d3efcc2aa6026285f49549d60f8eb6c3d159a2",
+    "credentials\\gemini.dpapi": "60b006faf5a0798bcbf2915e84f1de995bd84c002eea03817d29ae2c8e836aa6"
+  },
+  "running_rooms": [],
+  "health": {
+    "service": "tiered-dev-gui",
+    "version": "0.12.2"
+  },
+  "after": {
+    "rooms": 6,
+    "messages": 143,
+    "rooms_unchanged": true,
+    "messages_unchanged": true,
+    "protected_files_unchanged": true
+  },
+  "pending_document": {
+    "id": "07ecb16f8410403c8e9d355722187bb8",
+    "plan_ref": "P1@1",
+    "plan_sha256": "150d9433f81c57e3de0d91282ae548a005f824ef565e509b8e93c1a2345caeda",
+    "document_sha256": "5819aaf5351d51a50cdcdf426d419e2d225e8be7b29a91ee812b2fc90f8b8bea",
+    "can_approve": true,
+    "user_approvals": 0
+  },
+  "finished_utc": "2026-10-22T16:22:49.902132+00:00",
+  "startup": "Used the normal ensure_service launcher with redirected logging; a bare pythonw startup exited before health.",
+  "final_source_hashes_verified": 76,
+  "final_backend_reload_utc": "2026-10-22T16:26:53.690070+00:00"
+}

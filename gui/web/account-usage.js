@@ -35,7 +35,7 @@ export class AccountUsageView {
     const balances=root.querySelector('.usage-balances');balances.replaceChildren();
     for(const balance of entry.balances||[]){
       const row=document.createElement('div');row.className='usage-balance';
-      const amount=document.createElement('strong');amount.textContent=balance.currency+' '+balance.total_balance;
+      const amount=document.createElement('strong');amount.textContent=(balance.route?balance.route+' · ':'')+balance.currency+' '+balance.total_balance;
       const detail=document.createElement('small');detail.textContent=[balance.granted_balance!==undefined?'赠送 '+balance.granted_balance:'',balance.topped_up_balance!==undefined?'充值 '+balance.topped_up_balance:''].filter(Boolean).join(' · ');
       row.append(amount,detail);balances.append(row);
     }

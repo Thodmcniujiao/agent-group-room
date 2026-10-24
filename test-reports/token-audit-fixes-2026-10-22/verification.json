@@ -1,0 +1,23 @@
+{
+  "timestamp_utc": "2026-10-22T15:57:55.591149+00:00",
+  "source_version": "0.12.1",
+  "running_health": {
+    "service": "tiered-dev-gui",
+    "version": "0.12.0"
+  },
+  "source_files_checked": 73,
+  "source_hash_mismatches": [],
+  "tests_run": 178,
+  "passed_cases": 176,
+  "skipped": 2,
+  "failures": 0,
+  "errors": 0,
+  "node_syntax_checks": "passed",
+  "python_compileall": "passed",
+  "git_diff_check": "passed",
+  "audit_source_sha256": "66bc4bd4f33a113cac0792e795b00cde54b1c022008d5539ad2d0b70125fae01",
+  "full_task_effect_acceptance": "unverified; original criteria retained",
+  "claude_native_resume": "unverified; weekly quota exhausted",
+  "committed": false,
+  "pushed": false
+}

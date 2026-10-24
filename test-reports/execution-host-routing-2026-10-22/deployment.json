@@ -1,0 +1,144 @@
+{
+  "health_before": {
+    "service": "tiered-dev-gui",
+    "version": "0.14.0",
+    "active_workflows": 0
+  },
+  "backup": "C:\\Users\\Thodmc\\.local\\share\\tiered-dev\\gui\\backups\\before-0.14.1-20261022T191202Z.sqlite3",
+  "tables_before": {
+    "rooms": {
+      "count": 7,
+      "sha256": "f962cd1fb98a8f9bf4f55bf72a9e09635984bbe3a983608683a004acc07af305"
+    },
+    "messages": {
+      "count": 178,
+      "sha256": "a83fba3fbdc726bdb0ad1cb108ef2ba2ba3b824684a09e36d199b8c19608166b"
+    },
+    "room_settings": {
+      "count": 7,
+      "sha256": "31ded354958366d1c80ac92a0629ce48736d722b5aff10fc1a99be304f897e6d"
+    },
+    "policies": {
+      "count": 6,
+      "sha256": "1a7c6db2fba7694f56ea6cfa889ca96ad22e81ca87b1f51ed369c77ce575ec24"
+    },
+    "plans": {
+      "count": 3,
+      "sha256": "2460b56d0b19c1dab4fef389d72c7f66dbc3891e2a2de1f119771d0d2c176480"
+    },
+    "approvals": {
+      "count": 7,
+      "sha256": "a7c2268d40d445aa9895f8569ae62a31ca508d13cf3ab2ff8f466e7222580e72"
+    },
+    "workflow_state": {
+      "count": 2,
+      "sha256": "228afed166f831e7fb6f5837049e3bd3a63ea4e5743635255ec285c7aa1dbbb8"
+    },
+    "agent_sessions": {
+      "count": 30,
+      "sha256": "907d45e85917a63c47e0def26dab853a2852e459fc4bf68204cff32e9eb84b07"
+    },
+    "usage_records": {
+      "count": 61,
+      "sha256": "36c83b2fe12540afb306f551fea09b4f20c9fc278f0776097e268f2bc1ea0995"
+    },
+    "approval_documents": {
+      "count": 2,
+      "sha256": "5a49823921553685635711f3d889447b34450e90dbd4a522ff8deec7ed10171e"
+    }
+  },
+  "room_status_before": "stopped",
+  "room_context": {
+    "soft_tokens": 128000,
+    "output_tokens": 32768,
+    "margin_tokens": 6000,
+    "tool_rounds": 16,
+    "overflow": "rotate",
+    "maintain_at": 0.6,
+    "handoff_recent": 8
+  },
+  "main_ps1_sha256_before": "285935cf158ba0acc8867bee2f416c04e6e04fdf1391a72a0146e93241152470",
+  "recovery_hashes_before": {
+    "1f91689a7f9349f6a134e83b3c595b39.json": "5a11c40c7a6ff7ec69b6bb42c35aac3a04dcbd949abbed163775dc25615c97f6",
+    "26c82cb4f0e54fcda957f46492b2f308.json": "bd1b5ac6dc68e2ba98bf5f52d2d49eca03c69abaf8550b5caeb312882c83e655",
+    "4bafded6cf9e4e04ada336d9eef76700.json": "b1ad9b78cddc75ddfa81659ece670248abfcd239aa18d673b76aa6bd05b80712",
+    "6ac0d0cfabe24546804a5eb4ea82de3c.json": "af241437c78d4a277280c7b6f5822280bb49f7a0588cdd8c6d892199adf92f8d",
+    "6b08ab3090e84a718a7903fcba76a900.json": "6c4366befa781756c46d8662dc78b162d5b5e70de3679c1a8e464a831da974b5",
+    "85d0093f6bc943c1baf2841ce633272c.json": "9378dda2e9e1a21937962ddcd9725320478a3e865b16e7cc36c50a60feeec67b",
+    "aa9e8a57e0ad4a4abc18f51a3ca0654c.json": "43bc7f998c76c3454e8ea136d928f9c78a440fbfed9585c9b56c7d308fb3cc4d",
+    "c12fd7ba4b0f42d2be93e549f97622ba.json": "4e074e4317268baa877f4f6f50d6459f5b38e6be5f23c3b89dbd35deffc82c71",
+    "c9a689c43538433ab118009e751bdbe1.json": "d9711ccef69b1586181f08900833066e6a98dc0cabbfb4404983041aa43d9a24"
+  },
+  "health_after": {
+    "service": "tiered-dev-gui",
+    "version": "0.14.1",
+    "active_workflows": 0
+  },
+  "tables_after": {
+    "rooms": {
+      "count": 7,
+      "sha256": "f962cd1fb98a8f9bf4f55bf72a9e09635984bbe3a983608683a004acc07af305"
+    },
+    "messages": {
+      "count": 178,
+      "sha256": "a83fba3fbdc726bdb0ad1cb108ef2ba2ba3b824684a09e36d199b8c19608166b"
+    },
+    "room_settings": {
+      "count": 7,
+      "sha256": "31ded354958366d1c80ac92a0629ce48736d722b5aff10fc1a99be304f897e6d"
+    },
+    "policies": {
+      "count": 6,
+      "sha256": "1a7c6db2fba7694f56ea6cfa889ca96ad22e81ca87b1f51ed369c77ce575ec24"
+    },
+    "plans": {
+      "count": 3,
+      "sha256": "2460b56d0b19c1dab4fef389d72c7f66dbc3891e2a2de1f119771d0d2c176480"
+    },
+    "approvals": {
+      "count": 7,
+      "sha256": "a7c2268d40d445aa9895f8569ae62a31ca508d13cf3ab2ff8f466e7222580e72"
+    },
+    "workflow_state": {
+      "count": 2,
+      "sha256": "228afed166f831e7fb6f5837049e3bd3a63ea4e5743635255ec285c7aa1dbbb8"
+    },
+    "agent_sessions": {
+      "count": 30,
+      "sha256": "907d45e85917a63c47e0def26dab853a2852e459fc4bf68204cff32e9eb84b07"
+    },
+    "usage_records": {
+      "count": 61,
+      "sha256": "36c83b2fe12540afb306f551fea09b4f20c9fc278f0776097e268f2bc1ea0995"
+    },
+    "approval_documents": {
+      "count": 2,
+      "sha256": "5a49823921553685635711f3d889447b34450e90dbd4a522ff8deec7ed10171e"
+    }
+  },
+  "tables_preserved": true,
+  "room_status_after": "stopped",
+  "main_ps1_sha256_after": "285935cf158ba0acc8867bee2f416c04e6e04fdf1391a72a0146e93241152470",
+  "recovery_preserved": true,
+  "executor_checks": [
+    {
+      "name": "executor_start",
+      "ok": true,
+      "detail": "实际执行配置加载成功；output=32768；tool_rounds=16",
+      "env": {
+        "name": "mcp",
+        "version": 2
+      }
+    },
+    {
+      "name": "recovery",
+      "ok": false,
+      "detail": "有待核实写入，请先核对恢复记录",
+      "env": {
+        "name": "mcp",
+        "version": 2
+      }
+    }
+  ],
+  "pending_recovery_count": 9
+}

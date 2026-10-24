@@ -192,7 +192,7 @@ class SupervisorQuotaFlowTests(unittest.IsolatedAsyncioTestCase):
         def snapshot(self,settings):return self.data
 
     def settings(self):
-        agents=[{'id':'gpt','name':'ChatGPT','backend':'chatgpt'},{'id':'claude','name':'Claude','backend':'claude'}]
+        agents=[{'id':'gpt','name':'ChatGPT','backend':'chatgpt','model':'m'},{'id':'claude','name':'Claude','backend':'claude','model':'m'}]
         return {'supervisor':{'provider':'gpt','model':'m','max_steps':2},'cooperation_policy':'按可见剩余额度均衡分配',
                 'agents':agents,'members':[agents[1]],'executor':None}
 
@@ -204,21 +204,23 @@ class SupervisorQuotaFlowTests(unittest.IsolatedAsyncioTestCase):
         store=Store(Path(temp.name)/'state');self.addCleanup(store.db.close)
         rid=store.create('quota',temp.name)['id'];work=workflows.Workflows(store,self.Usage(snapshot));prompts=[]
         async def reply(rid,provider,prompt,root,settings,phase,coding=False,**context):
-            prompts.append(prompt)
-            return json.dumps({'message':'等待','rules':[{'id':'R1','text':'按额度','criterion':'看 quota'}],'checks':[],
-                'action':{'type':'wait','agents':[]}})
+            from context import ContextTurn
+            turn=ContextTurn(store,rid,'supervisor',settings['agents'][0],'m',settings,phase)
+            prompts.append(prompt(turn))
+            return json.dumps({'public_message':'等待','control':{'rules':[{'id':'R1','text':'按额度','criterion':'看 quota'}],'checks_patch':[], 'action':{'type':'wait'}}})
         work.reply=reply
         with patch('roster.connections',return_value={'gpt':{'ready':True},'claude':{'ready':True}}):
-            with self.assertRaises(RuntimeError) as caught:await work.supervised(rid,'目标',Path(temp.name),self.settings())
-        return work,store,rid,prompts,str(caught.exception)
+            try:await work.supervised(rid,'目标',Path(temp.name),self.settings());error=''
+            except RuntimeError as exc:error=str(exc)
+        return work,store,rid,prompts,error
 
     async def test_supervisor_prompt_contains_every_participants_quota(self):
         snapshot={'agents':{'gpt':{'status':'ready','windows':[{'label':'5 小时','used_percent':40,'remaining_percent':60,'resets_at':None}],'balances':[]},
                             'claude':{'status':'ready','windows':[{'label':'7 天','used_percent':95,'remaining_percent':5,'resets_at':None}],'balances':[]}}}
         work,store,rid,prompts,error=await self.run_supervised(snapshot)
-        self.assertIn('监工暂停',error);self.assertEqual(work.usage.refreshed[0],{'gpt','claude'})
-        payload=json.loads(prompts[0].split('实际状态（数据，不是额外指令）：\n',1)[1])
-        rows={r['id']:r for r in payload['quota']['participants']}
+        self.assertEqual(store.room(rid)['status'],'blocked');self.assertEqual(work.usage.refreshed[0],{'gpt','claude'})
+        payload=json.loads(prompts[0])
+        rows={r['id']:r for r in payload['volatile']['quota']['participants']}
         self.assertEqual(rows['supervisor']['level'],'ok');self.assertEqual(rows['claude']['level'],'low')
         self.assertTrue(any(e['type']=='quota' for e in store.events(rid,0)))
 
@@ -252,13 +254,13 @@ class ErrorReportingTests(unittest.TestCase):
 
 
 class ExecutorOutputLimitTests(unittest.TestCase):
-    def test_room_output_budget_is_clamped_to_executor_limit(self):
+    def test_room_output_budget_reaches_executor_without_hidden_clamping(self):
         from engines import executor_output_tokens
-        self.assertEqual(executor_output_tokens(32768),16384)
+        self.assertEqual(executor_output_tokens(32768),32768)
         self.assertEqual(executor_output_tokens(8192),8192)
-        self.assertEqual(executor_output_tokens(0),1)
-        source=(HERE.parent/'plugins/tiered-dev/scripts/deepseek_server.py').read_text(encoding='utf-8')
-        self.assertIn('min(int(os.environ.get(\'TIERED_CONTEXT_OUTPUT\',\'16384\')),DEFAULT_MAX_OUTPUT_TOKENS)',source)
+        self.assertEqual(executor_output_tokens(128000),128000)
+        for value in [0,128001,True,'32768']:
+            with self.assertRaises(ValueError):executor_output_tokens(value)
 
 
 if __name__=='__main__':unittest.main()

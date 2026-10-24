@@ -1,0 +1,42 @@
+{
+  "health": {
+    "service": "tiered-dev-gui",
+    "version": "0.13.0",
+    "active_workflows": 0
+  },
+  "rooms": [
+    {
+      "id": "075bd19146ea436eaffe8bac7d0012f7",
+      "status": "complete"
+    },
+    {
+      "id": "0cf08bbc70a44085aec6084dcda72183",
+      "status": "complete"
+    },
+    {
+      "id": "0c05020abe7340229bd546ac1d5228cf",
+      "status": "complete"
+    },
+    {
+      "id": "cf39db9debef4ad2aa5d99f80271a7c9",
+      "status": "blocked"
+    },
+    {
+      "id": "c0036e8288cb4813b838a3d8f295d781",
+      "status": "blocked"
+    },
+    {
+      "id": "59e22df29e044db6847aefdd17d17127",
+      "status": "complete"
+    }
+  ],
+  "counts": {
+    "rooms": 6,
+    "messages": 152,
+    "plans": 1,
+    "approvals": 3,
+    "usage_records": 27
+  },
+  "room_configuration_sha256": "08ec2d500aa983a1ce1ff4efb03d4498be5d2b4ca1f93f91a97638bf8f9fd0bf",
+  "safe_idle": true
+}

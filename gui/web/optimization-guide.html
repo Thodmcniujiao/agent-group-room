@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>上下文优化 · 功能与原理说明</title>
+ <link rel="icon" href="/assets/icon.svg" type="image/svg+xml"><script src="/assets/theme.js"></script>
+ <link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/theme.css"><link rel="stylesheet" href="/assets/optimization-guide.css">
+</head>
+<body>
+<div class="optimization-guide-page">
+ <header class="optimization-guide-header"><div><p>代理协作室 · 0.14.1 · 2026-10-22</p><h1>上下文优化：功能与原理</h1><p>对应上下文输出预算、工具续轮与“历史摘要与工具输出”中的每个选项。说明正文保存在本机；外部项目资料需要联网。</p></div><button id="theme-toggle" type="button" class="outline">切换明暗主题</button></header>
+ <nav class="optimization-guide-navigation" aria-label="说明目录"><h2>按选项查阅</h2><ul>
+  <li><a href="#overview">使用方式与效果边界</a></li><li><a href="#optimization-enabled">房间总开关与切换</a></li>
+  <li><a href="#context-output">输出预留 / API 输出上限</a></li><li><a href="#context-tools">工具续轮上限</a></li>
+  <li><a href="#summary-enabled">作者自述摘要</a></li><li><a href="#output-preview-enabled">工具输出归档与有界预览</a></li>
+  <li><a href="#project-tools-enabled">只读项目读取与搜索</a></li><li><a href="#brevity-enabled">简洁发言指令</a></li>
+  <li><a href="#summary-use-supervisor_history">监工较早发言</a></li><li><a href="#summary-use-not_loaded">未加载目录</a></li>
+  <li><a href="#summary-use-handoff">分支交接</a></li><li><a href="#summary-use-catch_up">新成员补看</a></li>
+  <li><a href="#summary-min">长回复阈值</a></li><li><a href="#summary-max">摘要上限</a></li>
+  <li><a href="#summary-entries">目录最多条数</a></li><li><a href="#summary-ratio">目录预算比例</a></li>
+  <li><a href="#output-preview-max">输出预览上限</a></li><li><a href="#usage-report">用量口径与回取记录</a></li>
+  <li><a href="#experiment-dual">实验：双投递</a></li><li><a href="#experiment-headroom">实验：Headroom</a></li>
+  <li><a href="#experiment-repomap">实验：Aider RepoMap</a></li><li><a href="#experiment-toon">实验：TOON</a></li>
+  <li><a href="#experiment-ccusage">实验：ccusage</a></li><li><a href="#experiment-comem">实验：CoMem</a></li>
+  <li><a href="#experiment-context_mode">实验：Context Mode</a></li><li><a href="#experiment-claude_mem">实验：Claude-Mem</a></li>
+  <li><a href="#experiment-llmlingua">实验：LLMLingua</a></li>
+ </ul></nav>
+ <main class="optimization-guide-content">
+  <section id="overview"><h2>使用方式与效果边界</h2>
+   <p>这组设置控制“哪些材料在未来调用中以全文、摘要目录或输出预览呈现”。完整消息仍保存在宿主；模型需要细节时，可以在已有权限内分段回取。</p>
+   <ol><li>先打开房间总开关，再选择具体功能；四个摘要使用场合还需要“作者自述摘要”开启。</li><li>编辑后点击“保存此协作室设置”。设置只影响当前房间，在下次调用时应用；优化配置改变后使用新上下文分支。</li><li>在“查看本房间用量与回取”中检查实际请求用量和回取情况。开关关闭后，已有原文和归档仍然保留。</li></ol>
+   <p>已经进入原生会话历史的正文不会被追加摘要自动缩短。潜在收益主要发生在首次省略旧全文、新分支重建和大输出首次投递时；摘要生成、工具定义和回取本身也会消耗 token。</p>
+   <p class="guide-status">基础功能已做工程验收；真实模型的摘要忠实度、任务净费用和返工率仍待配对测试。九条实验路线均未开放，不能把开关名称当作已安装或已接入的能力。</p>
+   <p>可先阅读 <a href="#optimization-enabled">总开关</a>、<a href="#summary-enabled">作者自述摘要</a>和<a href="#usage-report">用量口径</a>。</p>
+  </section>
+
+  <section id="context-output"><h2>输出预留 / API 输出上限</h2>
+   <p class="guide-status">默认 32,768 · 本应用范围 1,024–128,000 · 当前房间保存后从下次请求生效</p>
+   <dl><dt>在哪里设置</dt><dd>打开“此协作室的上下文设置”，修改“输出预留 / API 输出上限”并保存。上下文软预算必须大于输出上限、安全余量与 1,024 tokens 输入空间之和。</dd><dt>功能与原理</dt><dd>API 讨论与编码执行均将此值传给实际请求的输出参数。在共享上下文窗口的模型中，该值也占用本地输入预算；CLI 的输出上限由原生运行器控制。</dd><dt>为什么会在 16,384 截断</dt><dd>0.14.0 及更早版本的编码适配器，把房间设置压到固定 16,384，MCP 配置与 HTTP 子进程也按这个旧值校验。0.14.1 已统一这三处传递和校验：例如设置 32,768，编码请求实际发送 max_tokens=32768。</dd><dt>包含哪些内容</dt><dd>输出计数可能同时包含推理、正文与工具调用参数。长思考或一次生成整份文件可能先用完额度，最终文本或工具参数随之截断。调高上限提供更多生成空间，不保证每个任务一定完成，也不会改变推理强度。</dd><dt>与服务商限制的关系</dt><dd>服务商限制仍独立生效。本应用目前允许最高 128,000；截至 2026-10-22，DeepSeek 官方文档允许 max_tokens 最高 393,216，不能据此推定其他兼容服务也支持相同上限。</dd><dt>失败后如何处理</dt><dd>输出截断进入宿主故障检查，保留文件、原错误和日志。“仅复查宿主”不调用模型，也不自动重新派发已启动契约。调整设置只影响后续请求，不恢复服务端已经截断的那次生成。</dd></dl>
+   <p>服务商原始参数定义见 <a href="https://api-docs.deepseek.com/api/create-chat-completion/" target="_blank" rel="noopener noreferrer">DeepSeek Chat Completions：max_tokens 与 finish_reason</a>。</p>
+  </section>
+
+  <section id="context-tools"><h2>每次发言的工具续轮上限</h2>
+   <p class="guide-status">默认 16 · 范围 1–100 · 与输出 token 和监工协作轮数分别计算</p>
+   <dl><dt>功能与原理</dt><dd>限制一次发言或编码任务内“模型响应 → 工具执行 → 再次请求模型”的循环。一次响应可能包含多个工具调用；编码执行器的最后一轮如果仍在调用工具，轮数用完后就没有下一次模型总结，因而可能出现文件已写入但没有 STATUS: DONE 的情况。</dd><dt>如何调节</dt><dd>在同一上下文设置中修改“每次发言的工具续轮上限”。较长编码任务可能需要更多续轮；调高后最多请求次数、等待时间和 token 消耗也可能增加。调整此项不会扩大单次输出上限，也不会重新运行已经结束的任务。</dd><dt>失败后如何处理</dt><dd>轮数耗尽属于宿主运行故障。宿主核对文件、原契约验收与恢复记录，保留执行失败状态；不会为了获取一句成功总结再次调用执行者。存在待核实写入时保留记录并阻断重复派发。</dd></dl>
+  </section>
+
+  <section id="optimization-enabled"><h2>启用此房间的上下文优化</h2>
+   <p class="guide-status">默认关闭 · 仅当前房间 · 保存后从下次调用应用</p>
+   <dl><dt>功能</dt><dd>作为下方摘要、工具输出预览、只读项目工具及简洁指令的总开关。子选项即使已勾选，也需要总开关开启才生效。</dd><dt>原理</dt><dd>宿主在每次调用开始时读取房间配置。优化配置改变时建立新的上下文分支，避免把不同提示与投递策略混在同一原生会话中；正在进行的调用继续使用它开始时的设置。</dd><dt>开启或关闭后的行为</dt><dd>开启后按子选项构建未来请求；关闭后未来请求恢复原组包策略。原文、已生成的摘要和归档不会因此删除；已有归档指针仍可按原有权限回取。基础用量记录与报表继续可用。</dd><dt>适用场景与限制</dt><dd>适合需要比较不同组包方式的房间。切换分支可能需要重建上下文，也可能改变缓存条件；不能把一次请求 token 变少直接等同于整项任务省钱。</dd></dl>
+  </section>
+
+  <section id="summary-enabled"><h2>作者自述摘要</h2>
+   <p class="guide-status">子选项默认勾选 · 需总开关开启 · 摘要由讨论成员在原回复中生成</p>
+   <dl><dt>功能</dt><dd>让较长的讨论回复附上“立场、要点、未决问题”，供监工和讨论成员定位旧消息，再按需读取原文。</dd><dt>原理</dt><dd>通过一段稳定指令，要求作者在同一次回复末尾写摘要。宿主严格解析格式，并把摘要与原消息的 SHA-256 哈希绑定；只在摘要和原文匹配时采用。表态行仍保留在最后。</dd></dl>
+   <pre>摘要：立场=有条件｜要点=先保留日志再显示预览｜未决=中间错误需要回取核对</pre>
+   <p>缺失、超长、格式错误、引用示例或代码块中的“摘要”不会被当作有效摘要。当前不会额外追问，也不会另调模型代写；历史中没有合格摘要的消息不会自动补齐。没有摘要时可回退原文或编号目录，具体取决于保护规则和预算。</p>
+   <p>摘要是导航，不能代替表态、批准或证据。用户原话、当前方案、相关未决异议和失败证据继续按保护规则保留原文；必要原文放不下时进入预算处理。执行者不参与群聊摘要投递，也不因本选项获得群聊工具。</p>
+   <p>四个使用场合可以独立控制。所有场合关闭后，本选项仍会请求作者生成摘要，并保留主动查询摘要目录的能力；如需停止生成摘要，应关闭本选项。摘要可能遗漏关键条件，实际忠实度和净收益仍需测试。</p>
+  </section>
+
+  <section id="output-preview-enabled"><h2>工具输出归档与有界预览</h2>
+   <p class="guide-status">子选项默认勾选 · 需总开关开启 · 作用于已接入的宿主验收、Git 与执行器工具输出</p>
+   <dl><dt>功能</dt><dd>在大输出进入模型上下文前保存原始捕获文本，先展示有上限的首尾预览；需要中间内容时按输出编号分页回取。</dd><dt>原理</dt><dd>宿主在原有输出截断之前归档，记录输出 ID、文本哈希、所属房间与会话、命令、真实退出码和捕获完整标记。超过预览上限时，约三分之一剩余字符用于开头，三分之二用于末尾，中间显示省略及回取提示。</dd><dt>如何读取细节</dt><dd>模型通过 <code>output_read</code> 按字符偏移回取，每段最多 8,000 字符；你也可在“用量与回取”中打开归档，逐段查看。</dd><dt>限制</dt><dd>首尾预览可能漏掉中间的唯一错误，不能当作完整证据。运行器仍有捕获上限，例如 Bash 每个输出流最多 8,000,000 字节；超限会标记捕获不完整。归档是捕获并解码后的文本，不是无限保存的原始字节流。</dd></dl>
+   <p>退出码保持真实值，不因预览而把失败算作成功。回取按房间和角色核验；执行者只能读取同一执行身份的执行会话输出与宿主验收输出。关闭本功能会停止后续主动归档预览，既有归档仍可回取。</p>
+  </section>
+
+  <section id="project-tools-enabled"><h2>只读项目读取与搜索</h2>
+   <p class="guide-status">子选项默认勾选 · 需总开关开启 · 提供给具备群聊工具权限的监工与讨论成员</p>
+   <dl><dt>功能</dt><dd>让成员在项目范围内按需读取文件和搜索文字，减少为了寻找少量信息而反复带入大段项目资料的需要。</dd><dt>原理</dt><dd><code>project_read</code> 按行分页返回 UTF-8 文本；<code>project_search</code> 使用 Git 的已跟踪及未忽略文件清单进行字面搜索，返回文件路径、行号和命中片段。工具只读，不新增写文件或执行任意命令的能力。</dd><dt>返回预算</dt><dd>单次读取最多 400 行、12,000 字符；超过 2 MB 的文件或超长单行会被拒绝。搜索最多返回 100 处匹配，扫描有文件数和字节上限；未完成时会标记。搜索需要可用 Git 索引，已知路径的读取不依赖搜索。</dd><dt>限制</dt><dd>拒绝项目外路径、凭据及控制目录，例如 <code>.env</code>、密钥、<code>.git</code>、<code>.codex</code>、<code>.claude</code>。工具不提供二进制读取，也不等于 Aider RepoMap；现有项目快照仍保留。工具定义与调用结果也占上下文，实际是否减少总成本需要对照测量。</dd></dl>
+   <p>执行者继续使用原执行契约规定的工具与范围，本开关不会给执行者增加这些讨论工具。</p>
+  </section>
+
+  <section id="brevity-enabled"><h2>简洁发言指令</h2>
+   <p class="guide-status">默认不勾选 · 需总开关开启 · 作用于监工与讨论成员</p>
+   <dl><dt>功能</dt><dd>鼓励发言直接写结论、依据和需要别人做的事，减少客套、复述与重复总结。</dd><dt>原理</dt><dd>向角色提示中加入一条短指令，让模型在生成时主动控制表达。指令同时要求完整保留代码、命令和关键异议。</dd><dt>适用场景</dt><dd>适合长时间协作中重复解释较多的讨论；输出可能变短，后续带入历史的文本也可能随之减少。</dd><dt>限制</dt><dd>这是风格引导，模型未必每次遵守；不会硬截断已经生成的正文，不调整模型推理强度，也不改变执行者契约。需要长篇论证时可以关闭。输出质量和实际节省尚待真实模型验证。</dd></dl>
+  </section>
+
+  <section id="summary-use-supervisor_history"><h2>监工较早发言</h2>
+   <p class="guide-status">默认勾选 · 依赖总开关与作者自述摘要 · 仅监工“账本 + 新增原文”模式</p>
+   <dl><dt>功能</dt><dd>控制监工查看较早讨论材料时，是否优先使用已有的作者摘要。这里指“投递给监工的较早发言”，并非让监工给自己的历史补写摘要。</dd><dt>原理</dt><dd>组包时，把非关键、未投递且有合格摘要的旧讨论放入目录，保留原文 ID 供回取。监工刚要求成员回复的新材料、当前方案和受保护争议继续发原文。</dd><dt>关闭的影响</dt><dd>停止这个场合的优先摘要策略，改由原文候选与总预算决定投递。预算不足时，“未加载目录”等其他场合仍可能提供摘要。</dd><dt>限制</dt><dd>监工选择“完整状态 + 新增原文”时，本项不启用这条历史优先策略；不会重写已经进入监工原生会话的正文。</dd></dl>
+  </section>
+
+  <section id="summary-use-not_loaded"><h2>未加载目录</h2>
+   <p class="guide-status">默认勾选 · 依赖总开关与作者自述摘要</p>
+   <dl><dt>功能</dt><dd>为本次未装入全文的消息提供作者摘要，帮助成员判断哪些原文值得继续读取。</dd><dt>原理</dt><dd>宿主先装入必须保留的原文，再将其他未装入消息放进有界目录。目录项包括 ID、序号、作者、哈希和可用摘要；空间不足时可退为仅编号，更多条目通过目录工具分页查看。</dd><dt>关闭的影响</dt><dd>这个场合的目录不主动附摘要，仍可保留编号和回取方式。“监工较早发言”或“新成员补看”主动选择的摘要不由本项关闭；四个场合各自控制其投递来源。</dd><dt>限制</dt><dd>目录不保证列出所有历史，也不说明模型已读全文。这里控制自动组包；成员主动调用摘要目录工具仍可查询已有摘要。部分回取只有在所有分段齐全后，才记为完整原文已投递。</dd></dl>
+  </section>
+
+  <section id="summary-use-handoff"><h2>分支交接</h2>
+   <p class="guide-status">默认勾选 · 依赖总开关与作者自述摘要 · 新建上下文分支时使用</p>
+   <dl><dt>功能</dt><dd>在新分支的交接包中，补充更早消息的摘要目录，帮助新分支查找近期原文之外的背景。</dd><dt>原理</dt><dd>交接包包含宿主记录、配置数量内的近期原文及受保护材料；本选项额外为更早、未重复包含且有合格摘要的消息生成有界目录。目录本身也计入预算。</dd><dt>关闭的影响</dt><dd>交接包不追加这份更早摘要目录；原有交接账本、近期原文和原文归档仍保留。新分支后续的其他摘要投递仍由其他场合开关控制。</dd><dt>限制</dt><dd>交接包只是重建当前所需上下文，不等于复制全部历史。摘要不能替代批准记录或成功证据；必要细节仍须回取原文。</dd></dl>
+  </section>
+
+  <section id="summary-use-catch_up"><h2>新成员补看</h2>
+   <p class="guide-status">默认勾选 · 依赖总开关与作者自述摘要 · 讨论角色首次建立原生会话时使用</p>
+   <dl><dt>功能</dt><dd>让新加入的讨论成员先通过摘要了解较早背景，避免第一次发言就携带大量旧全文。</dd><dt>原理</dt><dd>在讨论成员尚未建立当前分支的原生会话时，把非关键、有作者摘要的旧消息优先放入目录。新分支中首次重建会话的老成员也属于这个条件。</dd><dt>关闭的影响</dt><dd>不使用这条优先摘要策略，改由原文候选和预算决定。若其他场合仍开启，未装入全文的消息依然可能在相应目录中出现摘要。</dd><dt>限制</dt><dd>用户要求、当前方案、相关未决异议等保护原文不因此降为摘要；也不会重复改写该成员已经收到的历史。</dd></dl>
+  </section>
+
+  <section id="summary-min"><h2>长回复阈值（字符）</h2>
+   <p class="guide-status">默认 400 · 范围 0–5,000 · 依赖总开关与作者自述摘要</p>
+   <dl><dt>功能与原理</dt><dd>决定多长的讨论回复需要附作者摘要。宿主只有在整条回复字符数严格大于此值时才接受摘要；等于阈值也按短回复处理。</dd><dt>调节影响</dt><dd>调低会让更多回复需要摘要，增加摘要输出和目录开销；调高只覆盖较长发言，短消息继续用原文或编号表示。</dd><dt>限制</dt><dd>单位是程序统计的文本字符，包含空白和标点，不是中文词数或模型 token。改值只影响后续生成与解析，不会自动重算旧消息。</dd></dl>
+  </section>
+
+  <section id="summary-max"><h2>摘要上限（字符）</h2>
+   <p class="guide-status">默认 160 · 范围 40–400 · 依赖总开关与作者自述摘要</p>
+   <dl><dt>功能与原理</dt><dd>限制整条摘要行长度，包含“摘要：立场=…”等固定格式和标点。宿主仅接受符合格式且不超限的摘要。</dd><dt>调节影响</dt><dd>较小的值减少每条目录占用，但更难保留条件和未决问题；较大值允许更多细节，也会更快耗尽目录预算。</dd><dt>超限怎么办</dt><dd>摘要超长会被拒绝，正文继续保存；不会裁掉摘要末尾，也不会发起补问。参数变更不重算已保存摘要。</dd></dl>
+  </section>
+
+  <section id="summary-entries"><h2>目录最多条数</h2>
+   <p class="guide-status">默认 30 · 范围 1–100 · 每次自动生成的目录页上限</p>
+   <dl><dt>功能与原理</dt><dd>限制一页摘要或编号目录的候选条数。宿主优先选择较新消息，并同时检查实际序列化后的预算；因此真正返回的条目可能少于此值。</dd><dt>调节影响</dt><dd>调大可以展示更多历史入口，也增加编号、哈希和摘要开销；调小使当前请求更轻，但可能需要额外翻页。</dd><dt>限制</dt><dd>不是历史保存条数，也不是所有目录的合计上限。主动调用 <code>group_list_messages</code> 的每次读取仍最多 30 条，交接目录还受自己的预算约束。较早消息仍可通过续页或已知 ID 回取。</dd></dl>
+  </section>
+
+  <section id="summary-ratio"><h2>目录预算比例</h2>
+   <p class="guide-status">默认 0.15（15%） · 范围 0.05–0.5 · 控制预算上限，非固定分配</p>
+   <dl><dt>功能</dt><dd>限制自动摘要目录最多占用多少可用输入预算，防止摘要和编号本身挤满上下文。</dd><dt>原理</dt><dd>普通组包取“输入预算 × 本比例”和“扣除提示、安全余量及固定预留后的可用空间的三分之一”中较小的值。若整个请求仍超预算，目录会继续缩小。目录的完整 JSON、ID、哈希及续页信息全部计入。</dd><dt>调节影响</dt><dd>比例越大，可能容纳更多摘要，也可能挤压非关键原文空间；越小则更容易降为编号或需要翻页。0.15 不是强制用满 15%。</dd><dt>限制</dt><dd>交接目录另有更保守的预算上限；条数上限也会同时生效。此参数使用本地 token 估算，不是服务商最终账单；字符数与 token 数不能直接等同。</dd></dl>
+  </section>
+
+  <section id="output-preview-max"><h2>输出预览上限（字符）</h2>
+   <p class="guide-status">默认 6,000 · 范围 1,000–50,000 · 依赖总开关与工具输出归档预览</p>
+   <dl><dt>功能与原理</dt><dd>限制单份归档输出首次呈现给模型的预览文本长度，省略提示和输出指针也占这个上限。短于上限的输出直接显示原文，仍会归档。</dd><dt>调节影响</dt><dd>调小减少首次投递量，却可能增加后续分页回取；调大保留更多现场信息，但大输出仍可能遗漏中间内容。</dd><dt>限制</dt><dd>不是归档容量上限，不改变运行器捕获边界，也不改变 <code>output_read</code> 单次最多 8,000 字符。回取的文本会进入后续模型请求，净收益要把它算进去。</dd></dl>
+   <p>详见<a href="#output-preview-enabled">工具输出归档与有界预览</a>。</p>
+  </section>
+
+  <section id="usage-report"><h2>用量口径与回取记录</h2>
+   <p class="guide-status">不依赖优化总开关 · 报表展示已有记录 · 查看归档会新增回取记录</p>
+   <dl><dt>功能</dt><dd>按成员、角色、会话分支、日期、适配器或发言类型查看用量，并查看最近 50 条归档输出及回取次数。日期按 Europe/London 划分。</dd><dt>原理与口径</dt><dd>服务商输入总量已经包含缓存读取与写入，输出总量已经包含推理子项；不能再把子项加一次。缓存命中率只对输入和缓存读取均已知的请求，计算“缓存读取合计 ÷ 输入合计”。</dd></dl>
+   <pre>输入总量 1,000，其中缓存读取 800、缓存写入 100
+输入仍为 1,000；这组已知数据的缓存命中率为 80%。</pre>
+   <p>字段缺失保持“未知”；“另 N 次未知”表示部分请求没有该字段，显示的合计只覆盖已知记录。全文、摘要、仅编号是投递形式记录；回取一段不等于读取整篇，也不能证明模型理解或采纳了内容。</p>
+   <p>报表不会自动计算可信的任务净节省或订阅实际账单。比较优化效果需要同类任务配对运行，计入所有生成、工具续轮、回取、缓存和返工，并同时比较任务质量与延迟。</p>
+  </section>
+
+  <section id="experiment-dual"><h2>实验：双投递</h2>
+   <p class="guide-status">保留路线 · 尚未开放 · 启用请求会被明确拒绝</p>
+   <dl><dt>预期功能与原理</dt><dd>同一次投递同时发送原文与作者摘要，让模型用摘要定位、用全文核对。这会增加输入；它是否减少误读或返工，需要实际比较。</dd><dt>日后需要测试</dt><dd>固定任务多次配对测量误读、成功率、回取、返工及总输入费用；验证预算不足时的回退，保证关键原文不会降档。</dd><dt>当前替代方式</dt><dd>使用基础版原文投递或摘要目录按需回取。当前不声称双投递已经接入，也不假定双投递能省钱。</dd></dl>
+  </section>
+
+  <section id="experiment-headroom"><h2>实验：Headroom</h2>
+   <p class="guide-status">保留路线 · 尚未完成本项目接入与验收 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>上游提供库、代理及 MCP 等接入方式，对进入模型的工具输出等材料按内容类型压缩；可恢复压缩把原文存于本地，需要时再检索。</dd><dt>日后需要测试</dt><dd>固定版本与许可，验证 Windows 和各适配器、关键事实保留、缓存变化、回取期限、总费用及延迟。上游回取可能受配置的 TTL 限制，宿主原文存储必须独立保留。</dd><dt>当前替代方式</dt><dd>使用本机归档与首尾预览。上游宣称的压缩率和测试结果不等于本项目的实际收益。</dd></dl>
+   <p>原理来源：<a href="https://github.com/headroomlabs-ai/headroom" target="_blank" rel="noopener noreferrer">Headroom 上游项目与架构说明</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-repomap"><h2>实验：Aider RepoMap</h2>
+   <p class="guide-status">保留路线 · 基础版只读工具已提供，Aider 地图尚未接入 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>从项目代码提取文件、关键符号及依赖关系，用图排序选出预算内较重要的代码地图，帮助模型决定进一步读取哪些文件。</dd><dt>日后需要测试</dt><dd>当前工作树与未跟踪文件是否及时反映、不同任务的相关代码覆盖、中文提示、硬预算及原文读取可达性；不能只用 HEAD 哈希代替工作树变化。</dd><dt>当前替代方式</dt><dd>继续使用项目快照及按需只读文件工具。代码地图是导航，不能替代修改或评审时读取真实代码。</dd></dl>
+   <p>原理来源：<a href="https://aider.chat/docs/repomap.html" target="_blank" rel="noopener noreferrer">Aider Repository map 官方说明</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-toon"><h2>实验：TOON</h2>
+   <p class="guide-status">保留路线 · 尚未接入官方序列化器 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>用紧凑文本表示 JSON 数据；对于同结构对象数组，把公共字段名放在表头，行内只写值，减少重复键名与标点。</dd><dt>日后需要测试</dt><dd>使用官方编码器验证字段类型、转义、空值、嵌套数据往返；以实际模型 tokenizer 比较长度，并验证模型能否准确引用消息 ID 和证据。仅在无损且更短时采用。</dd><dt>当前替代方式</dt><dd>保留紧凑 JSON。字段结构不规则时 TOON 未必更短；序列化器能解码也不代表模型引用必然正确。</dd></dl>
+   <p>原理来源：<a href="https://toonformat.dev/guide/format-overview" target="_blank" rel="noopener noreferrer">TOON 官方格式说明</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-ccusage"><h2>实验：ccusage</h2>
+   <p class="guide-status">保留路线 · 当前报表使用宿主记录，尚未接入 ccusage · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>读取编码 Agent CLI 的本地用量数据，汇总成日期、会话等报表，用来与宿主记录交叉核对。它是计量工具，本身不压缩上下文。</dd><dt>日后需要测试</dt><dd>按同一身份、会话和时间范围对账，避免重复记账；明确哪些 CLI 记录可对应当前请求、哪些自定义 API 不在其数据源内。缓存口径和价格估算要分别校验。</dd><dt>当前替代方式</dt><dd>使用“本房间用量与回取”及宿主 A1 记录。外部报表不能覆盖宿主归因，本地五小时分桶也不能直接当作服务商真实剩余额度。</dd></dl>
+   <p>原理来源：<a href="https://github.com/ccusage/ccusage" target="_blank" rel="noopener noreferrer">ccusage 上游项目与支持的数据源</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-comem"><h2>实验：CoMem</h2>
+   <p class="guide-status">研究路线 · 本机推理服务及模型适配尚未验收 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>用独立的小型记忆模型在后台压缩交互历史，主模型读取较短状态继续决策。上游通过行动一致性训练，让记忆侧重保留后续行动所需信息；异步流水线尝试让压缩和主模型推理重叠。</dd><dt>日后需要测试</dt><dd>实际发布权重和许可、量化后显存及 KV 内存、中文讨论、否定句与关键事实保留、异步记忆新鲜度、最终成功率和端到端延迟。</dd><dt>当前替代方式</dt><dd>使用作者摘要和原文。上游训练指标不能保证本项目决策质量；第三方记忆也不能作为作者表态、批准或执行证据。</dd></dl>
+   <p>原理来源：<a href="https://github.com/horizon-llm/CoMem" target="_blank" rel="noopener noreferrer">CoMem 论文实现与设计说明</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-context_mode"><h2>实验：Context Mode</h2>
+   <p class="guide-status">保留路线 · 工具路由与权限适配尚未完成 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>通过 MCP 与会话钩子将大材料放在工具处理流程内，只返回精炼输出；索引内容可用全文搜索和 BM25 排序按需找回，减少整段工具结果进入模型。</dd><dt>日后需要测试</dt><dd>现有执行契约、工具路由、误拦、跨平台兼容及额外延迟；重点核对是否扩大执行者权限。上游的“沙箱”不能代替本项目已有的权限校验。</dd><dt>当前替代方式</dt><dd>保留既有执行边界、归档预览和只读项目工具。若今后适配失败，应退回这些基础能力。</dd></dl>
+   <p>原理来源：<a href="https://github.com/mksglu/context-mode" target="_blank" rel="noopener noreferrer">Context Mode 工具与索引架构</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-claude_mem"><h2>实验：Claude-Mem</h2>
+   <p class="guide-status">保留路线 · 跨会话记忆尚未接入 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>通过会话生命周期钩子记录工具观察与摘要，将相关记忆保存并在未来会话中检索、注入。渐进式读取先取索引，再取需要的细节。</dd><dt>日后需要测试</dt><dd>房间与角色隔离、代码及方案版本失效、过期记忆污染、来源追踪，以及记忆生成、搜索和注入的总成本。</dd><dt>当前替代方式</dt><dd>使用宿主账本、作者摘要及原文回取。额外记忆可能过期，注入文本也占输入；不能替代真实批准和成功证据。</dd></dl>
+   <p>原理来源：<a href="https://github.com/thedotmack/claude-mem" target="_blank" rel="noopener noreferrer">Claude-Mem 上游项目与记忆流程</a>（2026-10-22 核对）。</p>
+  </section>
+
+  <section id="experiment-llmlingua"><h2>实验：LLMLingua</h2>
+   <p class="guide-status">研究路线 · 仅预留工具输出实验 · 当前不可启用</p>
+   <dl><dt>预期功能与原理</dt><dd>通过较小模型判断提示中哪些 token 可以删减；LLMLingua-2 使用训练后的 token 分类编码器选择保留内容，尝试以更短文本维持下游任务表现。</dd><dt>日后需要测试</dt><dd>代码语法、路径、版本号、否定句、错误行和结构化证据的保真，以及模型运行成本和总延迟；必须保留宿主原文并能回取。</dd><dt>当前边界与替代方式</dt><dd>未来仅考虑工具输出实验，默认不压缩执行契约、批准或关键争议。当前使用归档首尾预览；压缩算法的公开基准不能保证具体代码与证据无损。</dd></dl>
+   <p>原理来源：<a href="https://github.com/microsoft/LLMLingua" target="_blank" rel="noopener noreferrer">Microsoft LLMLingua 项目与论文入口</a>（2026-10-22 核对）。</p>
+  </section>
+ </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "fixture": "local only; external generation disabled",
+  "version": "0.14.1",
+  "host_recheck_recorded": true,
+  "model_usage_records": 0,
+  "supervisor_messages": 0,
+  "executor_messages": 0,
+  "worker_failure_preserved": true,
+  "pending_recovery_preserved": true,
+  "host_acceptance_verified": true,
+  "file_sha256": "a7e333613cea6b007a9a15123ff6858fd569be8ba048e0ab37ce8676ec3163a7",
+  "host_blocker": {
+    "execution_id": "E01",
+    "fault": {
+      "code": "mutation_review",
+      "causes": [
+        "mutation_review",
+        "tool_round_limit"
+      ],
+      "stage": "execution",
+      "started": true,
+      "automatic_retry": false,
+      "tool_rounds": 16
+    }
+  },
+  "settings": {
+    "output_tokens": 32768,
+    "tool_rounds": 16
+  },
+  "help_sections": [
+    "context-output",
+    "context-tools"
+  ],
+  "screenshots": [
+    "settings.png",
+    "host-recheck.png"
+  ]
+}

@@ -53,7 +53,8 @@ class PolicyTests(unittest.TestCase):
             payload = {'cwd': folder, 'tool_name': 'Bash', 'tool_input': {'command': 'git reset --hard'}}
             def invoke():
                 return subprocess.run([sys.executable, str(SCRIPTS/'hook.py'), 'guard'],
-                    input=json.dumps(payload), text=True, capture_output=True)
+                    input=json.dumps(payload), text=True, encoding='utf-8', capture_output=True,
+                    env={**os.environ,'PYTHONIOENCODING':'utf-8'})
             self.assertEqual(invoke().returncode, 0)
             (root/'.tiered').mkdir()
             self.assertEqual(invoke().returncode, 2)
@@ -63,7 +64,8 @@ class PolicyTests(unittest.TestCase):
     def test_contract_hook_validates_without_calling_a_model(self):
         for task, code in [('fix it', 2), (VALID, 0)]:
             result = subprocess.run([sys.executable, str(SCRIPTS/'hook.py'), 'contract'],
-                input=json.dumps({'tool_input': {'task': task}}), text=True, capture_output=True)
+                input=json.dumps({'tool_input': {'task': task}}), text=True, encoding='utf-8', capture_output=True,
+                env={**os.environ,'PYTHONIOENCODING':'utf-8'})
             self.assertEqual(result.returncode, code)
 
 

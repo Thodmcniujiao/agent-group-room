@@ -1,0 +1,10 @@
+{
+  "browser/google-billing-sync/background.js": "b6ee92a9bd583f061a65b790adbf08d77210f7f4bcd604768dccf94d021c6b39",
+  "browser/google-billing-sync/content.js": "0c1d1e087756f7f43d89338037f40ef15be0756db4a5218bd89d37c93c6cf8f4",
+  "browser/google-billing-sync/manifest.json": "fe8fddd6c00f65a77b431dabca9ff54045cbe9b6d78442067c9c775845090eed",
+  "browser/google-billing-sync/pair.js": "a4105a75125de84839ba687006abd1d2d664ad4d24f31332efd0cfabf3e57f39",
+  "browser/google-billing-sync/popup.css": "45420dae24cd13fa5fe358484624236e0ea3964c354638ef3623b16e8f73f918",
+  "browser/google-billing-sync/popup.html": "f03bba9d89155ac8d6b82ba7b6762941f2af6144e77507f76b6fad63c5a55216",
+  "browser/google-billing-sync/popup.js": "97e6dfd8f87f0a378aa17a117023da6713adfdbd09641ebe3ef6da6a34c15c87",
+  "browser/google-billing-sync/reader.js": "a39d9e0fc332e5645941819e08f26cd8d356cea56dd997eea79b46ff416e7538"
+}
