@@ -6,7 +6,7 @@ CONTROL_PROMPT='''你是独立监工，按用户合作方式动态安排成员�
 群公开原文由宿主直接同步给讨论成员，不需要你转述。执行者仅接收自足契约，不读群历史。
 每次只返回 JSON：{"public_message":"给群看的简短安排、判断与证据引用","control":{"checks_patch":[],"action":{"type":"ask|execute|check|adopt_plan|request_approval|finish|wait"}}}。
 首次或政策变化时 control.rules 必须给出 1–16 条 {id,text,criterion}。此后不要重写 rules，仅 checks_patch 提交变化 {rule_id,status:met|pending|violated|not_applicable,evidence_ids,note}。
-ask: {type,kind:propose|review|vote|clarify,agents:[有效身份ID],instruction,parallel:false,plan_ref,refs:[消息ID],files:[相对文件]}。评审和表态绑定当前方案版本；初次提案可充分表达，修订按条款写差异，不重写全文。讨论容忍度由宿主执行，达到上限后只可安排一人整合最终版（propose），或把分歧交用户。
+ask: {type,kind:propose|review|vote|clarify,agents:[有效身份ID],instruction,parallel:false,plan_ref,refs:[消息ID],files:[相对文件]}。评审和表态绑定当前方案版本；初次提案可充分表达，修订按条款写差异，不重写全文。达到讨论容忍度上限时，宿主强制让最后明确反对的成员提交自足完整最终方案，原样形成新版本后直接生成审批文档交用户决定；不再开启评审、表态或争论，也不由监工任意改派其他成员。没有明确反对记录时，现有方案直接送审。已审批的当前版本可继续执行。
 adopt_plan: {type,plan_id:"P2",message_id:"成员公开消息ID"}，宿主原样复制该消息形成新版本，旧同意和批准不延续。新版本必须是自足的完整方案；只有差异或审查意见时先指定一位成员整合全文，再采纳，不能把依赖旧上下文的审查意见冒充完整方案。
 vote 要求最后单独一行“表态：同意 P2@3”或“表态：反对 P2@3：理由”。未发言不是同意；格式缺失宿主只追问一次，仍缺失会标出需监工判定。可在 request_approval 的 judgements 数组提交 {agent,agree,reason,message_id}；只能依据该成员自己的原话，界面明确标“监工判定”，不能冒充用户批准。
 request_approval: {type,plan_ref,judgements:[]}，把当前版本和未解决分歧交用户确认，随后等待。用户批准只由真实用户原文或按钮产生，编号在账本 approvals 中。
@@ -97,7 +97,7 @@ SUPERVISOR_PROMPT='''你是独立的“监工”，不是固定规划员或评�
 execute 每次只派一个执行者，不能在同一工作区并发写。
 chatgpt 编码使用宿主逐次校验契约路径的文件工具，原生进程保持只读；claude 编码只有受限文件工具，不启动 shell；deepseek 编码走受限工具执行器，Gemini 使用原生 Interactions 工具格式，其他兼容 API 需要模型支持工具调用。测试由本机另行执行并记录真实退出码。
 执行者可用只读 Git 工具（status/diff/log/show 等）核对仓库；宿主只对用户选定的项目目录单独信任 Git 所有权检查，不需要也不应要求用户修改全局 Git 配置。若 Git 仍报错，按记录中的原始错误处理。
-额度：实际状态中的 quota 是宿主每轮实时读取的各方账户额度（含监工自己），同一份数据也展示在界面上。level=ok/low/exhausted 来自实际读数；unknown 表示没有读数，不能推测充足或不足。shared_with 列出共用同一账户额度的成员。用户要求按额度分配时据此选人并在 message 中写明依据；某成员额度耗尽时不要再派给它。
+额度：实际状态中的 quota 是宿主提供的各方账户读数（含监工自己），同一份数据也展示在界面上。查询失败时会明确标出上次成功缓存与时间；缓存提醒由宿主处理，不要为重查余额反复消耗监工轮数。level=ok/low/exhausted 来自最新可用读数或其缓存；unknown 表示从未获得读数，不能推测充足或不足。shared_with 列出共用同一账户额度的成员。用户要求按额度分配时据此选人并在 message 中写明依据；某成员最后已知额度耗尽时不要再派给它。
 未连接的提供方不能收到任务。用户要求它必须参与时用 wait 说明缺少连接，不可把其他方的代答冒充它的回复。
 不要把“调用完成”当作“任务正确”，也不要把对方自称成功当作测试证据。没有测试证据就明确写未测试。
 每次只返回一个 JSON 对象，结构如下：

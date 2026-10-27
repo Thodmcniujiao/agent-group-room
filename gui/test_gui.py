@@ -596,7 +596,7 @@ class AccountUsageTests(unittest.IsolatedAsyncioTestCase):
             with patch.object(account_usage,'read_account',side_effect=RuntimeError('private-one')):
                 await asyncio.gather(*monitor.request_refresh(settings,force=True))
             failed=monitor.snapshot(settings)['agents']['one']
-            self.assertEqual(failed['status'],'error');self.assertEqual(failed['balances'][0]['total_balance'],'12.50')
+            self.assertEqual(failed['status'],'ready');self.assertTrue(failed['cached']);self.assertEqual(failed['balances'][0]['total_balance'],'12.50')
             self.assertNotIn('private-one',json.dumps(failed))
             keys['one']='rotated-private-key'
             self.assertEqual(monitor.snapshot(settings)['agents']['one']['balances'],[])

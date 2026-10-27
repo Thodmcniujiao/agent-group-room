@@ -8,6 +8,8 @@ The coding executor is **PsChina/deepseek-as-subagent** (MIT), pinned to commit 
 
 The version-controlled `gui/executor_limits.py` adapter extends that executor's explicit output-token validator from its 16,384 ceiling to the application's 128,000 range, in both the MCP host and hardened provider child. The installed dependency and its defaults, process isolation, transaction recovery, cancellation, response-byte limits and tool boundaries are unchanged. Room output settings are passed explicitly; provider-side limits still apply.
 
+The `gui/windows_scripts.py` adapter normalizes permitted PowerShell file writes to UTF-8 with BOM before the upstream atomic writer computes its committed-byte digest. The original transaction, identity checks and recovery journal still cover the exact written bytes. The host acknowledges only independently verified committed records within a currently user-approved contract; uncertain, changed or out-of-scope outcomes remain pending.
+
 The optional Voice Studio uses [edge-tts](https://github.com/rany2/edge-tts) 7.3.1 for online speech synthesis; its packaged license is preserved in [third_party/licenses/edge-tts/LICENSE](third_party/licenses/edge-tts/LICENSE). It can also connect to an independently installed [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) service. GPT-SoVITS source checkouts, runtime bundles, models and training data are not distributed in this repository; their upstream terms apply when separately downloaded.
 
 | Distribution | Tested version | License metadata | Original license files |

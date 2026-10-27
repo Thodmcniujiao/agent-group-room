@@ -10,6 +10,8 @@ from deepseek_mcp.resource_budget import MutationBudget
 class ProjectTools:
     names=['Read','Glob','Grep','Write','Edit']
     def __init__(self,root,allowed_paths,output_presenter=None):
+        from windows_scripts import install
+        install()
         self.root=Path(root).resolve();self.allowed=set(allowed_paths or [])
         self.config=Config('unused-no-network',self.root,allowed_tools=self.names)
         self.budget=MutationBudget();self.calls=0

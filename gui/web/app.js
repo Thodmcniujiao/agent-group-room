@@ -3,7 +3,7 @@ import { optimizationSettings, renderAuthorSummary, renderDelivery } from './con
 import { AvatarManager } from './avatars.js';
 import { CollaborationLogView } from './collaboration-logs.js';
 import { effortModel, nextEffort, renderReasoningEffort } from './reasoning-effort.js';
-import { AccountUsageView } from './account-usage.js';
+import { AccountUsageView, AccountAlerts } from './account-usage.js';
 import { ConnectionsPanel, groupAgents } from './connections.js';
 import { AgentDebugConsole } from './debug-console.js';
 import { catalogText, modelLabel, ModelSelect } from './model-directory.js';
@@ -12,6 +12,7 @@ const names={host:'宿主',chatgpt:'ChatGPT',claude:'Claude',deepseek:'DeepSeek'
 const usageViews=new Map();
 let contextEntries=[];
 let memberEffort=null,roomMemberEffort=null;
+const accountAlerts=new AccountAlerts($('account-alerts'));
 const letters={chatgpt:'G',claude:'C',deepseek:'D',supervisor:'M',you:'你'};
 const statuses={queued:'等待项目空闲',awaiting_approval:'等待方案批准',idle:'就绪',running:'运行中',paused:'等待继续',budget_paused:'等待上下文预算处理',complete:'已完成',partial:'部分完成',blocked:'需要处理',stopped:'已停止',interrupted:'上次运行已中断'};
 const app={token:'',prefs:null,roomSettings:null,roomEpoch:0,removing:false,editRoomMember:null,modelCatalog:{agents:{},refreshing:false},connections:{},logins:{},rooms:[],room:null,policy:null,events:null,messages:new Map(),phaseHistory:[],customProvider:null,editMember:null,modelPoll:null,modelsBusy:false,catalogEpoch:0,evidenceMap:{},lastActivity:0,pendingSaves:0,syncBusy:false,configEpoch:0,usageData:{agents:{},refreshing:false},usagePoll:null,usageBusy:false,usageEpoch:0};
@@ -155,6 +156,7 @@ function applyUsage(data){
  for(const [id,view] of usageViews)view.render(data.agents[getMember(id)?.agent_id||id]);renderConnections();scheduleUsagePoll();
 }
 function scheduleUsagePoll(){
+ accountAlerts.render(data.alerts||[]);
  clearTimeout(app.usagePoll);app.usagePoll=setTimeout(pollUsage,app.usageData.refreshing?800:60000);
 }
 async function pollUsage(){
@@ -241,7 +243,7 @@ $('pause-before').onchange=async()=>{roomPrefs().pause_before_execution=$('pause
 $('supervisor-provider').onchange=async()=>{try{const provider=$('supervisor-provider').value;roomPrefs().supervisor.provider=provider;roomPrefs().supervisor.model=getAgent(provider).model;roomPrefs().supervisor.effort=nextEffort(effortModel(modelList(getAgent(provider)),getAgent(provider).model),getAgent(provider).effort);renderSupervisor();await savePrefs()}catch(e){toast(e.message)}};
 $('supervisor-model').onchange=async()=>{try{const value=$('supervisor-model').value;if(value==='__custom'){customDialog('supervisor');return}roomPrefs().supervisor.model=value;roomPrefs().supervisor.effort=nextEffort(effortModel(modelList(getAgent(roomPrefs().supervisor.provider)),value),roomPrefs().supervisor.effort);renderSupervisor();await savePrefs()}catch(e){toast(e.message)}};
 $('supervisor-effort').onchange=async()=>{try{roomPrefs().supervisor.effort=$('supervisor-effort').value||null;await savePrefs()}catch(e){toast(e.message)}};
-bind('policy-open',policyDialog);bind('policy-top',policyDialog);
+bind('policy-open',policyDialog);
 $('policy-form').onsubmit=async event=>{event.preventDefault();try{const text=$('policy-text').value.trim();if(!text)throw new Error('请输入合作方式。');roomPrefs().supervisor.max_steps=Number($('max-steps').value);if($('policy-default').checked)await queueMutation('/settings',{cooperation_policy:text});await savePrefs();if(app.room)app.policy=await api('/rooms/'+app.room.id+'/policy',{text});renderPolicy();$('policy-dialog').close();toast(app.room?.status==='running'?'合作方式已更新，当前步骤结束后生效':'合作方式已交给监工')}catch(e){toast(e.message)}};
 $('mode').onchange=composerState;$('target').onchange=composerState;
 $('composer').onsubmit=async event=>{event.preventDefault();if(!app.room){projectDialog();return}const text=$('prompt').value.trim();if(!text)return;try{await saveChain;const response=await api('/rooms/'+app.room.id+'/send',{text,mode:$('mode').value,target:$('target').value});$('prompt').value='';if(response.status==='started'){$('activity-text').textContent='正在安排本次协作…'}else toast('已补充合作要求，当前步骤结束后生效')}catch(error){toast(error.message)}};

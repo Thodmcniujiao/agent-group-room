@@ -3,6 +3,10 @@ import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import math
+import hashlib
+import json
+import os
+from pathlib import Path
 import time
 
 import httpx
@@ -100,36 +104,64 @@ def external(provider):
 
 
 class UsageMonitor:
-    def __init__(self,ttl=60):
+    def __init__(self,ttl=60,path=None):
         self.ttl=ttl;self.cache={};self.checked={};self.tasks={};self.errors={};self.limit=asyncio.Semaphore(3)
+        self.path=Path(path) if path else None
+        if self.path:
+            try:
+                saved=json.loads(self.path.read_text(encoding='utf-8'))
+                self.cache={k:v for k,v in saved.items() if isinstance(v,dict) and v.get('status')=='ready' and isinstance(v.get('updated'),str)}
+            except (OSError,ValueError,AttributeError):pass
+
+    def persist(self):
+        if self.path:
+            self.path.parent.mkdir(parents=True,exist_ok=True);pending=self.path.with_suffix('.new')
+            pending.write_text(json.dumps({k:v for k,v in self.cache.items() if v.get('status')=='ready'},ensure_ascii=False),encoding='utf-8')
+            os.replace(pending,self.path)
 
     def snapshot(self,settings):
-        entries={};refreshing=False
+        entries={};refreshing=False;scopes={}
         for agent in settings['agents']:
             provider=provider_for(agent)
             if not provider:continue
             if provider=='gemini' and agent.get('google_billing'):
                 from google_billing import balances,select
                 cfg=agent['google_billing'];data=balances(cfg['billing_account'])
+                scopes[agent['id']]='google:'+cfg['billing_account']
                 try:route=select(agent,bool(connection_context(agent)[1]));reason='下次调用：'+route
                 except ValueError as exc:route=None;reason=str(exc)
                 entries[agent['id']]={**data,'windows':[],'plan':'Google · '+cfg['mode'],
-                    'updated':max((s['observed_at'] for s in data['observations']),default=None),
+                    'updated':data.get('updated'),
                     'detail':reason+'；'+data['detail'],'url':'https://console.cloud.google.com/billing/'+cfg['billing_account']+'/credits',
                     'selected_route':route,'project':cfg['project'],'billing_account':cfg['billing_account']}
                 continue
             if provider in ['openai','claude-api','gemini']:
                 entries[agent['id']]={**external(provider),'url':LINKS[provider],'updated':None};continue
             fingerprint,key=connection_context(agent)
+            scopes[agent['id']]=fingerprint
             data=self.cache.get(fingerprint,{'plan':'','windows':[],'balances':[],'detail':'正在读取账户数据…','updated':None})
             loading=fingerprint in self.tasks and not self.tasks[fingerprint].done()
-            state='loading' if loading else data.get('status','idle')
+            ready=data.get('status')=='ready'
+            state=data['status'] if ready else 'loading' if loading else data.get('status','idle')
             detail=self.errors.get(fingerprint) or data['detail']
-            if fingerprint in self.errors and not loading:state='error'
+            if fingerprint in self.errors and not loading and not ready:state='error'
             if provider=='deepseek' and not key:state='unconfigured';detail='先配置 API 密钥，再查询余额。'
-            entries[agent['id']]={**data,'status':state,'detail':detail,'url':LINKS[provider]}
+            try:age=max(0,(datetime.now(timezone.utc)-datetime.fromisoformat(data['updated'])).total_seconds())
+            except (KeyError,ValueError,TypeError):age=0
+            cached=ready and (fingerprint in self.errors or age>600)
+            warning='账户读数缓存已超过 30 分钟未更新，请检查登录或网络；当前继续复用上次成功读数。' if ready and age>=1800 else ''
+            if warning:detail=warning
+            entries[agent['id']]={**data,'status':state,'detail':detail,'url':LINKS[provider],
+                'cached':cached,'cache_age_seconds':age,'cache_warning':warning,'refreshing':loading}
             refreshing=refreshing or loading
-        return {'agents':entries,'refreshing':refreshing}
+        alerts={}
+        for aid,entry in entries.items():
+            if not entry.get('cache_warning'):continue
+            stamp=entry.get('cache_observed_at') or entry.get('updated')
+            identity=hashlib.sha256((scopes[aid]+':'+str(stamp)).encode()).hexdigest()
+            if identity not in alerts:alerts[identity]=dict(id=identity,agents=[],text=entry['cache_warning'],updated=stamp,url=entry['url'])
+            alerts[identity]['agents'].append(next(a['name'] for a in settings['agents'] if a['id']==aid))
+        return {'agents':entries,'refreshing':refreshing,'alerts':list(alerts.values())}
 
     def request_refresh(self,settings,ids=None,force=False):
         requested=[]
@@ -140,14 +172,17 @@ class UsageMonitor:
             if provider_for(agent)=='deepseek' and not key:continue
             if fingerprint in self.tasks and not self.tasks[fingerprint].done():requested.append(self.tasks[fingerprint]);continue
             if not force and time.monotonic()-self.checked.get(fingerprint,float('-inf'))<self.ttl:continue
-            self.checked[fingerprint]=time.monotonic();self.errors.pop(fingerprint,None)
+            self.checked[fingerprint]=time.monotonic()
             task=asyncio.create_task(self.fetch(fingerprint,agent.copy(),key));self.tasks[fingerprint]=task;requested.append(task)
         return list(dict.fromkeys(requested))
 
     async def fetch(self,fingerprint,agent,key):
         try:
             async with self.limit,asyncio.timeout(25):data=await read_account(agent,key)
+            if data.get('status')!='ready' and self.cache.get(fingerprint,{}).get('status')=='ready':
+                self.errors[fingerprint]='本次未获得账户读数，当前继续使用上次成功缓存。';return
             self.cache[fingerprint]={**data,'updated':datetime.now(timezone.utc).isoformat()}
+            self.errors.pop(fingerprint,None);self.persist()
         except asyncio.CancelledError:raise
         except Exception as exc:
             code=getattr(getattr(exc,'response',None),'status_code',None)
@@ -178,7 +213,8 @@ def _summary(entry):
         if w.get('resets_at'):text+=f"（{w['resets_at'][:16].replace('T',' ')} UTC 重置）"
         parts.append(text)
     for b in entry.get('balances',[]):parts.append(f"{b.get('route','')} 余额 {b['currency']} {b['total_balance']}".strip())
-    return '；'.join(parts) or '无读数'
+    summary='；'.join(parts) or '无读数'
+    return ('【上次成功缓存，更新时间 '+str(entry.get('updated') or entry.get('cache_observed_at') or '未知')+'】' if entry.get('cached') else '')+summary
 
 
 def _level(entry):
@@ -213,13 +249,14 @@ def team_quota(settings,snapshot):
         if entry is None:
             entry={'status':'none','detail':'此连接没有可读的额度接口。','windows':[],'balances':[]}
         row={'id':identity,'name':name,'role':role,'agent':aid,'status':entry.get('status'),
+            'cached':bool(entry.get('cached')),'cache_age_seconds':entry.get('cache_age_seconds'),
             'level':_level(entry),'summary':_summary(entry),'updated':entry.get('updated'),
             'windows':[{k:w.get(k) for k in ['label','remaining_percent','resets_at']} for w in entry.get('windows',[])],
             'balances':[{k:b.get(k) for k in ['currency','total_balance']} for b in entry.get('balances',[])]}
         pools.setdefault(fingerprint,[]).append(row);rows.append(row)
     for group in pools.values():
         for row in group:row['shared_with']=[r['id'] for r in group if r is not row]
-    return {'checked_at':datetime.now(timezone.utc).isoformat(),'participants':rows,
+    return {'checked_at':datetime.now(timezone.utc).isoformat(),'participants':rows,'alerts':snapshot.get('alerts',[]),
         'known':any(r['status']=='ready' for r in rows)}
 
 

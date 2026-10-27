@@ -22,6 +22,11 @@ ACCOUNT = re.compile(r'[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}')
 PROJECT = re.compile(r'[a-z][a-z0-9-]{4,61}[a-z0-9]')
 LOCK = threading.RLock()
 MAX_AGE = 600
+REMIND_AFTER = 1800
+
+
+class BillingUnavailable(ValueError):
+    """A host billing prerequisite, never a supervisor decision to correct."""
 
 
 class _KeyLogFilter(logging.Filter):
@@ -137,6 +142,8 @@ def ingest(body):
             eligible_routes=routes,scope=scope))
     snapshot=dict(billing_account=account,kind=kind,source_url=url,credits=clean,
         complete=body.get('complete') is True,observed_at=utc().isoformat())
+    if kind=='cloud_credits' and not clean and not snapshot['complete']:
+        raise ValueError('本次未读到赠金记录，已保留上次成功缓存；请检查账单页面后重试。')
     if kind=='developer_prepay':
         currency=body.get('currency','')
         if not re.fullmatch('[A-Z]{3}',currency):raise ValueError('预付余额缺少明确币种。')
@@ -145,33 +152,59 @@ def ingest(body):
         if isinstance(granted,dict) and granted.get('currency')==currency:
             snapshot['eligible_cloud_credit']=amount(granted.get('remaining'))
     with LOCK:
-        data=load();data.setdefault('accounts',{}).setdefault(account,{})[kind]=snapshot;save(data)
+        data=load();account_state=data.setdefault('accounts',{}).setdefault(account,{})
+        if kind=='cloud_credits':
+            previous=account_state.get(kind,{})
+            old={r['id']:{**r,'observed_at':r.get('observed_at',previous.get('observed_at'))} for r in previous.get('credits',[])}
+            merged={} if snapshot['complete'] else dict(old)
+            for row in clean:
+                # Missing status/dates are a partial read, not a new financial fact.
+                incomplete=Decimal(row['remaining'])>0 and (row['status']=='unknown' or row['status']=='available' and row['eligible_routes'] and not row['expires_at'])
+                if incomplete and row['id'] in old:merged[row['id']]=old[row['id']]
+                else:merged[row['id']]={**row,'observed_at':snapshot['observed_at']}
+            snapshot['credits']=list(merged.values())
+        account_state[kind]=snapshot;save(data)
     return snapshot
 
 
 def balances(account,now=None):
     now=now or utc();observations=load().get('accounts',{}).get(account,{})
-    totals={};details=[];fresh=False
+    totals={};details=[];records=[];valid=False
     for kind,snapshot in observations.items():
         observed=date(snapshot.get('observed_at'))
-        if not observed or not 0<=(now-observed).total_seconds()<=MAX_AGE:
-            details.append('余额观察已过期，请打开账单页重新同步。');continue
-        fresh=True
+        if not observed or (now-observed).total_seconds()<0:
+            details.append('余额观察时间无效，请重新同步。');continue
+        age=(now-observed).total_seconds();valid=True
         if kind=='developer_prepay':
             paid=Decimal(snapshot['remaining'])
-            totals[('developer',snapshot['currency'])]=paid+(Decimal(snapshot.get('eligible_cloud_credit','0')) if paid>0 else Decimal(0));continue
+            totals[('developer',snapshot['currency'])]=paid+(Decimal(snapshot.get('eligible_cloud_credit','0')) if paid>0 else Decimal(0))
+            records.append((paid>0,observed,age))
+            continue
+        count=len(records)
         for row in snapshot.get('credits',[]):
             starts=date(row.get('starts_at'));expires=date(row.get('expires_at'))
             if row['status']!='available' or not expires or expires<=now or starts and starts>now:continue
+            confirmed=date(row.get('observed_at')) or observed
+            row_age=(now-confirmed).total_seconds()
+            if row_age<0:continue
             for route in row['eligible_routes']:
                 # Developer Cloud credit eligibility also needs an active Prepay balance.
                 if route=='developer':continue
                 key=(route,row['currency']);totals[key]=totals.get(key,Decimal(0))+Decimal(row['remaining'])
+                records.append((Decimal(row['remaining'])>0,confirmed,row_age))
+        if len(records)==count:records.append((False,observed,age))
     prepay=observations.get('developer_prepay',{})
-    return dict(status='ready' if fresh else 'unavailable',balances=[dict(route=r,currency=c,total_balance=str(v),
+    relevant=[r for r in records if r[0]] or records
+    ages=[r[2] for r in relevant];stamps=[r[1].isoformat() for r in relevant]
+    oldest=max(ages,default=0);cached=oldest>MAX_AGE
+    warning='余额缓存已超过 30 分钟未更新，请检查登录和余额同步扩展；当前继续复用上次成功读数。' if oldest>=REMIND_AFTER else ''
+    return dict(status='ready' if valid else 'unavailable',cached=cached,cache_age_seconds=oldest,
+        cache_observed_at=min(stamps) if stamps else None,updated=max(stamps) if stamps else None,
+        cache_warning=warning,
+        balances=[dict(route=r,currency=c,total_balance=str(v),
         **({'granted_balance':str(v)} if r=='vertex' else {'topped_up_balance':prepay.get('remaining'),
             'granted_balance':prepay.get('eligible_cloud_credit','0')})) for (r,c),v in totals.items()],
-        observations=list(observations.values()),detail='；'.join(details) or '浏览器读取的账单快照，最多有效 10 分钟；Google 账单本身可能延迟。')
+        observations=list(observations.values()),detail='；'.join(details+[warning or ('暂未获得新读数，继续使用上次成功缓存。' if cached else '浏览器读取的账单快照；Google 账单本身可能延迟。')]))
 
 
 def select(agent,key_present,now=None):
@@ -184,7 +217,7 @@ def select(agent,key_present,now=None):
         for route in ['vertex','developer']:
             if route=='developer' and not key_present:continue
             if any(b['route']==route and Decimal(b['total_balance'])>0 for b in reading['balances']):return route
-    raise ValueError('没有新鲜且已确认适用的 Google 余额。请同步赠金／预付余额，或手动选择调用渠道。')
+    raise BillingUnavailable('没有可复用且已确认适用的 Google 余额缓存。请同步赠金／预付余额，或手动选择调用渠道；等待同步不占监工轮数。')
 
 
 def adc_path():
@@ -242,6 +275,14 @@ async def prepare(agent):
     cfg=agent.get('google_billing')
     if not cfg:return agent
     route=select(agent,bool(preferences.get_member_key(agent)))
+    try:return await _prepare_route(agent,cfg,route)
+    except BillingUnavailable:raise
+    except ValueError as exc:raise BillingUnavailable(str(exc)) from None
+    except (httpx.HTTPError,OSError):raise BillingUnavailable('Google 连接核验暂时失败，请检查网络或登录后继续；此等待不占监工轮数。') from None
+
+
+async def _prepare_route(agent,cfg,route):
+    from engines import preferences
     source={**agent,'_google_route':route}
     if route=='vertex' or cfg['mode']=='auto':
         token=await access_token()
@@ -262,6 +303,9 @@ async def prepare(agent):
 
 
 async def credential(source):
-    if source.get('_google_route')=='vertex':return await access_token()
+    if source.get('_google_route')=='vertex':
+        try:return await access_token()
+        except ValueError as exc:raise BillingUnavailable(str(exc)) from None
+        except (httpx.HTTPError,OSError):raise BillingUnavailable('Google 凭据刷新暂时失败，请检查登录和网络后继续。') from None
     from engines import preferences
     return preferences.get_member_key(source) or ('local-no-auth' if source.get('no_auth') else '')

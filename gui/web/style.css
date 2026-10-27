@@ -240,8 +240,8 @@ h1{margin:0;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;te
 /* Account usage */
 .account-usage{padding:10px 11px;margin:8px 0;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text-2)}
 .provider .account-usage{margin:0;padding:8px 10px;background:var(--bg-side);border-color:transparent}
-.usage-heading{display:flex;align-items:center;gap:7px;font-size:11.5px}
-.usage-heading>strong{font-weight:600;color:var(--text)}
+.usage-heading{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:11.5px}
+.usage-heading>strong{font-weight:600;color:var(--text);white-space:nowrap}
 .usage-plan{padding:1px 5px;border-radius:4px;background:var(--surface-3);font-size:10.5px}
 .usage-plan:empty{display:none}
 .usage-updated{margin-left:auto;font-size:10.5px;color:var(--text-3)}
@@ -272,6 +272,7 @@ h1{margin:0;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;te
 .compact .usage-actions{grid-row:1;grid-column:2;margin:0;gap:4px}
 .compact .usage-actions a{font-size:10.5px}
 .compact .usage-updated{font-size:10px}
+.compact .usage-heading .usage-updated{flex-basis:100%;margin-left:0}
 .compact .usage-window{margin-top:6px}
 .compact .usage-window-label{flex-wrap:wrap;gap:2px}
 .compact .usage-detail{font-size:10.5px!important}
@@ -485,4 +486,9 @@ dialog textarea{width:100%;padding:10px 11px;font-size:13px;line-height:1.7}
 .room-member-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0}
 .room-member-identity .avatar{width:48px;height:48px}
 .room-member-identity small{flex-basis:100%}
+#account-alerts{margin:0 20px 10px;max-height:140px;overflow:auto;flex-shrink:0}
+.account-cache-alert{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #b88c3955;border-radius:10px;background:#b88c3914;color:var(--text);font-size:12px;line-height:1.6}
+.account-cache-alert span{flex:1;min-width:0}
+.account-cache-alert a{flex-shrink:0;color:inherit;text-decoration:underline}
+.account-cache-alert+.account-cache-alert{margin-top:6px}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

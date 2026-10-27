@@ -27,6 +27,17 @@ def names(settings):
     return {m['id']:m['name'] for m in settings['members']}
 
 
+def check_billing(settings,identities=None):
+    """Check locally before asking any model to reason about a missing meter."""
+    from google_billing import select,BillingUnavailable
+    sources=[('supervisor',agent(settings,settings['supervisor']['provider'])),*((m['id'],m) for m in settings['members'])]
+    for identity,source in sources:
+        if identities is not None and identity not in identities:continue
+        if not source.get('google_billing'):continue
+        try:select(source,bool(preferences.get_member_key(source)))
+        except BillingUnavailable as exc:raise BillingUnavailable(source['name']+'：'+str(exc)) from None
+
+
 async def connections(settings,refresh=False):
     global _auth_cache,_auth_checked
     agents=settings.get('agents',settings['members'])

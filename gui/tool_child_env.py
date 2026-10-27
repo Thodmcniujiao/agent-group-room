@@ -8,6 +8,9 @@ Git at the host's per-project trust file and moves scratch output outside.
 """
 import os
 from deepseek_mcp import bash_tool, tool_child
+from windows_scripts import install as install_script_encoding
+
+install_script_encoding()
 
 _original=bash_tool._host_environment
 

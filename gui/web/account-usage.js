@@ -1,6 +1,20 @@
 const number=value=>Number.isInteger(value)?String(value):Number(value).toFixed(1);
 const localTime=value=>new Date(value).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 
+export class AccountAlerts {
+  constructor(root){this.root=root;this.signature=''}
+  render(alerts=[]){
+    const signature=JSON.stringify(alerts);if(signature===this.signature)return;this.signature=signature;
+    this.root.replaceChildren();this.root.hidden=!alerts.length;
+    for(const alert of alerts){
+      const row=document.createElement('div');row.className='account-cache-alert';
+      const text=document.createElement('span');text.textContent=alert.agents.join('、')+'：'+alert.text+(alert.updated?' 上次成功：'+localTime(alert.updated):'');
+      const link=document.createElement('a');link.href=alert.url.includes('console.cloud.google.com')?'/assets/google-billing.html':alert.url;link.textContent='检查余额与同步';
+      row.append(text,link);this.root.append(row);
+    }
+  }
+}
+
 export class AccountUsageView {
   constructor(root,onRefresh){
     this.root=root;this.onRefresh=onRefresh;this.entry=null;
@@ -10,7 +24,7 @@ export class AccountUsageView {
       const button=root.querySelector('button');button.disabled=true;
       try{await this.onRefresh()}
       catch{root.querySelector('.usage-detail').textContent='刷新失败，请稍后重试。'}
-      finally{button.disabled=this.entry?.status==='loading'}
+      finally{button.disabled=this.entry?.status==='loading'||this.entry?.refreshing}
     };
   }
 
@@ -20,7 +34,7 @@ export class AccountUsageView {
     this.entry=entry;this.root.dataset.status=entry.status;
     const root=this.root;root.querySelector('strong').textContent=entry.balances?.length?'API 账户余额':'账户用量';
     root.querySelector('.usage-plan').textContent=entry.plan?entry.plan.charAt(0).toUpperCase()+entry.plan.slice(1):'';
-    root.querySelector('.usage-updated').textContent=(entry.status==='loading'?'更新中':entry.updated?localTime(entry.updated)+' 更新':'');
+    root.querySelector('.usage-updated').textContent=(entry.status==='loading'?'更新中':entry.updated?localTime(entry.updated)+(entry.cached?' · 缓存':' 更新'):'');
     const windows=root.querySelector('.usage-windows');windows.replaceChildren();
     for(const value of entry.windows||[]){
       const row=document.createElement('div');row.className='usage-window';
@@ -41,6 +55,6 @@ export class AccountUsageView {
     }
     root.querySelector('.usage-detail').textContent=entry.detail;
     const link=root.querySelector('a');link.href=entry.url;link.textContent=entry.status==='external'?'查看用量／账单 ↗':'官方账户页 ↗';
-    const refresh=root.querySelector('button');refresh.hidden=['external','unconfigured'].includes(entry.status);refresh.disabled=entry.status==='loading';
+    const refresh=root.querySelector('button');refresh.hidden=['external','unconfigured'].includes(entry.status);refresh.disabled=entry.status==='loading'||entry.refreshing;
   }
 }

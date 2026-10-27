@@ -9,7 +9,7 @@ async function refresh(){
   const selected=$('agent').value;$('agent').replaceChildren(...agents.map(a=>new Option(a.name,a.id)));if(agents.some(a=>a.id===selected))$('agent').value=selected;
   const state=await api('google-billing');$('extension').value=state.extension_path;$('origin').value=state.origin;$('pairing').value=state.pairing_token;$('adc').textContent=state.adc?'已发现本机 ADC 文件；点击核验确认权限。':'尚未发现本机 ADC 文件。';
   $('reading').replaceChildren();for(const a of agents){const reading=bootstrap.account_usage.agents[a.id];if(!a.google_billing)continue;
-    const title=document.createElement('h3');title.textContent=a.name;const detail=document.createElement('p');detail.textContent=reading?.detail||'未知';$('reading').append(title,detail);
+    const title=document.createElement('h3');title.textContent=a.name;const detail=document.createElement('p');detail.textContent=(reading?.cached?'【复用上次成功缓存】 ':'')+(reading?.detail||'未知')+(reading?.updated?' 上次成功：'+new Date(reading.updated).toLocaleString('zh-CN'):'');$('reading').append(title,detail);
     for(const b of reading?.balances||[]){const row=document.createElement('p');row.textContent=(b.route==='vertex'?'Vertex 赠金':'Gemini API 可用')+' · '+b.currency+' '+b.total_balance+(b.route==='developer'?'（预付 '+b.topped_up_balance+'，适用赠金 '+b.granted_balance+'）':'');$('reading').append(row);}}
   if(!$('reading').children.length)$('reading').textContent='尚无已配置的 Google 余额。先保存连接与调用方式，再同步账单页面。';
   $('raw').textContent=JSON.stringify(state.accounts,null,2);

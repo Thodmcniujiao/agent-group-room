@@ -85,9 +85,17 @@ async def executor_checks(root,source,settings):
                 health=json.loads(read_response(await session.call_tool('executor_health',{})))
                 if not health.get('ok'):return [check('executor_start',False,health.get('error','配置加载失败'),'mcp')]
                 recovery=json.loads(read_response(await session.call_tool('get_deepseek_recovery',{})))
+                confirmed=[]
+                if recovery.get('ok') and recovery.get('pending') and settings.get('_recovery_verified_hashes'):
+                    from recovery_verification import reconcile
+                    pending,confirmed=await reconcile(session,root,recovery['pending'],settings.get('_recovery_allowed_paths',[]),settings['_recovery_verified_hashes'],read_response)
+                    recovery={**recovery,'pending':pending}
                 row=check('recovery',bool(recovery.get('ok')) and not recovery.get('pending'),
                     ('有待核实写入，请先核对恢复记录' if recovery.get('pending') else '无待核实写入') if recovery.get('ok') else recovery.get('error','恢复记录读取失败'),'mcp')
                 row['records']=recovery.get('pending',[])
+                if confirmed:
+                    row['acknowledged_records']=confirmed
+                    row['detail']='宿主已按批准范围及执行证据确认 '+str(len(confirmed))+' 条成功落盘记录；'+row['detail']
                 return [check('executor_start',True,'实际执行配置加载成功；output='+str(health['max_output_tokens'])+
                     '；tool_rounds='+str(health.get('max_turns','未知')),'mcp'),row]
     except Exception as exc:

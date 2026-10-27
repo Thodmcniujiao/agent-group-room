@@ -40,7 +40,7 @@ ORIGIN=f'http://127.0.0.1:{PORT}'
 WEB=Path(__file__).parent/'web'
 MODELS=shared_catalog()
 DEBUG=AgentDebugger()
-USAGE=UsageMonitor()
+USAGE=UsageMonitor(path=preferences.STATE/'account-usage-cache.json')
 AVATARS=Avatars(preferences.STATE/'avatars.json')
 DISPLAY=DisplaySettings(preferences.STATE/'display.json')
 WORK.usage=USAGE  # supervisor and members see the same account meters as the UI
@@ -508,8 +508,9 @@ async def recovery(request):
     rid=request.path_params['rid'];room=STORE.room(rid)
     if rid in WORK.running: raise ValueError('请等待或停止当前执行后检查恢复记录。')
     root=project_path(room['project']);body=await request.json()
-    selected=preferences.load()
-    source=next((m for m in selected['agents'] if m['backend'] in ['deepseek','openai-compatible'] and (preferences.get_member_key(m) or m.get('no_auth'))),None)
+    selected=ROOMS.load(rid)
+    executor=next((m for m in selected['members'] if m['id']==selected.get('executor')),None)
+    source=executor if executor and executor['backend'] in ['deepseek','openai-compatible'] else next((m for m in selected['agents'] if m['backend'] in ['deepseek','openai-compatible'] and (preferences.get_member_key(m) or m.get('no_auth'))),None)
     if source is None:
         raise ValueError('当前没有配置可用的 API 执行连接。CLI 文件修改请从“变更与报告”核对。')
     async with deepseek_session(root,source['model'],member=source) as session:
@@ -526,7 +527,9 @@ async def recovery(request):
             if ids:
                 result=json.loads(read_response(await session.call_tool('acknowledge_deepseek_mutations',{'transaction_ids':ids})))
                 if not result.get('ok'): raise ValueError('恢复确认失败。')
-            return JSONResponse({'pending':[],'acknowledged':len(ids)})
+            refreshed=json.loads(read_response(await session.call_tool('get_deepseek_recovery',{})))
+            if not refreshed.get('ok'):raise ValueError('确认后未能重新读取恢复状态，请再次复查。')
+            return JSONResponse({'pending':refreshed.get('pending',[]),'acknowledged':len(ids)})
         return JSONResponse({'pending':pending})
 
 

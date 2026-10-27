@@ -54,10 +54,11 @@ class BillingTests(unittest.TestCase):
         with self.assertRaises(ValueError):billing.select(AGENT,True)
         data['credits'][0].update(eligible_routes=['vertex'],starts_at=(NOW+timedelta(days=1)).isoformat());billing.ingest(data)
         with self.assertRaises(ValueError):billing.select(AGENT,True)
-    def test_stale_and_clock_rollback_observations_do_not_route(self):
+    def test_stale_observations_reuse_cache_but_clock_rollback_does_not_route(self):
         billing.ingest(snapshot())
-        for when in [NOW+timedelta(seconds=601),NOW-timedelta(seconds=1)]:
-            with self.assertRaises(ValueError):billing.select(AGENT,True,when)
+        self.assertEqual(billing.select(AGENT,True,NOW+timedelta(seconds=601)),'vertex')
+        self.assertTrue(billing.balances(ACCOUNT,NOW+timedelta(seconds=601))['cached'])
+        with self.assertRaises(ValueError):billing.select(AGENT,True,NOW-timedelta(seconds=1))
     def test_account_isolation_and_currency_separation(self):
         billing.ingest(snapshot(account=OTHER))
         with self.assertRaises(ValueError):billing.select(AGENT,True)

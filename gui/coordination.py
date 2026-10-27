@@ -12,6 +12,7 @@ from supervision import validate_control,supervisor_payload
 from workflow_state import (new_state,add_evidence,refresh,current_refs,adopt,valid_plan,approvals_cover,
     accept_user_approval,accept_button_approval,record_vote,open_questions,TOLERANCE,digest,delivery_verified)
 from store import now,WorkflowConflict
+from google_billing import BillingUnavailable
 
 
 class Coordinator:
@@ -54,6 +55,37 @@ class Coordinator:
             actions=[{'id':'recheck','label':'仅复查宿主' if runtime else '复查并继续'}])
         self.store.status(self.rid,'blocked')
 
+    def billing_block(self,error,undo_round=False):
+        if undo_round:self.state['step']=max(0,self.state['step']-1)
+        checks=[check('google_billing',False,str(error),'account')]
+        previous=self.state.get('blocker') or {}
+        if previous.get('billing') and previous.get('fingerprint')==fingerprint(checks):
+            self.save();self.store.status(self.rid,'blocked');return
+        self.host_error(checks)
+        self.state['blocker']['billing']=True;self.save()
+
+    def billing_ready(self,identities=None):
+        try:roster.check_billing(self.settings,identities)
+        except BillingUnavailable as exc:self.billing_block(exc);return False
+        return True
+
+    def balance_notices(self,quota):
+        seen=self.state.setdefault('balance_notice_ids',[])
+        for alert in (quota or {}).get('alerts',[]):
+            if alert['id'] in seen:continue
+            self.store.message(self.rid,'system','、'.join(alert['agents'])+'：'+alert['text']+
+                ' 上次成功更新时间：'+str(alert.get('updated') or '未知'),phase='余额缓存提醒')
+            seen.append(alert['id'])
+        self.state['balance_notice_ids']=seen[-100:];self.save()
+
+    def submit_approval(self,plan,judgements=(),notice=None):
+        from approval_documents import create,action as document_action
+        self.state['awaiting_approval']=plan['ref'];self.state['status']='awaiting_approval'
+        document=create(self.store,self.rid,self.state,self.settings,judgements)
+        self.state['approval_document_id']=document['id'];self.save()
+        self.store.message(self.rid,'system',notice or '方案审批文档已生成。请打开文档核对完整方案后批准。',phase='确认方案',actions=[document_action(document)])
+        self.store.status(self.rid,'awaiting_approval')
+
     async def execution_fault(self,execution,action=None,*,recheck=False):
         """Inspect a stopped attempt locally. Never resubmit its job or ask a model to recover it."""
         from execution_faults import runtime_fault,describe_fault
@@ -62,7 +94,7 @@ class Coordinator:
         runtime={'execution_id':execution['id'],'fault':fault}
         rows=[]
         try:
-            rows=await preflight(self.root,self.settings,agent=execution['agent'])
+            rows=await preflight(self.root,self.recovery_settings(execution['agent'],action),agent=execution['agent'])
             self.record_environment_checks(rows)
             scope=self.scope_check()
             if scope:rows.append(scope)
@@ -106,7 +138,20 @@ class Coordinator:
             if c['name']=='recovery' and 'records' in c:self.state['recovery_records']=c['records']
             if c.get('initialized'):
                 self.store.message(self.rid,'host',c['detail'],phase='项目环境准备')
+            if c.get('acknowledged_records'):
+                self.store.message(self.rid,'host','已核对并确认成功落盘的文件：'+', '.join(r['path'] for r in c['acknowledged_records'])+'。文件哈希与批准范围及上次执行证据一致；这仅确认写入结果，不代表功能验收通过。',phase='写入恢复核对')
         self.save()
+
+    def recovery_settings(self,agent,action=None):
+        action=action or self.state.get('pending_action')
+        if not action or action.get('agents')!=[agent] or action.get('policy_revision')!=self.state['policy_revision']:return self.settings
+        try:approvals_cover(self.state,self.store,self.rid,action)
+        except (ValueError,KeyError):return self.settings
+        previous=next((e for e in reversed(self.state['evidence']) if e.get('kind')=='execute' and e.get('agent')==agent and e.get('status')=='failed' and e.get('bound_to',{}).get('plan')==self.state.get('current_plan')),None)
+        if not previous or not previous.get('file_hashes'):return self.settings
+        allowed=action.get('allowed_paths',[])
+        hashes={name:digest for name,digest in previous['file_hashes'].items() if name in allowed and digest}
+        return {**self.settings,'_recovery_allowed_paths':allowed,'_recovery_verified_hashes':hashes}
 
     def pending_valid(self):
         from workflows import contract
@@ -144,7 +189,7 @@ class Coordinator:
         scope=self.scope_check()
         if scope and not scope['ok']:self.host_error([scope],a);return False
         if not checked:
-            checks=await preflight(self.root,self.settings,quota,a['agents'][0])
+            checks=await preflight(self.root,self.recovery_settings(a['agents'][0],a),quota,a['agents'][0])
             self.record_environment_checks(checks)
             if any(not c['ok'] for c in checks):self.host_error(checks,a);return False
         self.state['pending_action']=a;self.state['blocker']=None;self.save()
@@ -199,7 +244,11 @@ class Coordinator:
             return '方案差异 '+seen+' → '+ref+'：\n'+''.join(difflib.unified_diff(old['text'].splitlines(True),plan['text'].splitlines(True),fromfile=seen,tofile=ref))
         return '方案 '+ref+'（sha '+plan['sha256']+'）：\n'+plan['text']
 
-    async def ask(self,action,policy):
+    async def ask(self,action,policy,*,phase='协作发言'):
+        from discussion_resolution import FINAL_PHASE
+        current=self.state.get('current_plan')
+        if current and self.state['discussion_rounds'].get(current.split('@')[0],0)>=TOLERANCE[self.settings.get('discussion_tolerance',3)][0] and phase!=FINAL_PHASE:
+            raise ValueError('讨论上限已到，宿主将强制由最后反对者提交完整方案并直接送审，不能再开启新一轮讨论。')
         kind=action['kind'];ref=action.get('plan_ref');cap=None
         if kind in ['review','vote']:
             plan=valid_plan(self.state,self.store,self.rid,ref);pid=plan['plan_id']
@@ -217,7 +266,7 @@ class Coordinator:
         project=await asyncio.to_thread(project_context,self.root) if kind=='propose' else ''
         boundary=self.store.boundary(self.rid) if action.get('parallel') else None
         self.state['last_ask']={'agents':action['agents'],'boundary':self.store.boundary(self.rid),'kind':kind,'plan_ref':ref};self.save()
-        counted_round=False
+        counted_round=False;billing_errors=[]
 
         async def one(agent):
             nonlocal counted_round
@@ -230,7 +279,7 @@ class Coordinator:
                     turn.required_message_ids=sorted(critical_ids(self.state)|set(action.get('refs',[])))
                 prompt='监工的只读咨询：'+action['instruction'] if isolated else '用户目标：'+self.state['goal']['text']+'\n本轮 '+kind+'：'+action['instruction']
                 if ref and not isolated:prompt+='\n'+self.plan_for(turn,ref)
-                if kind=='vote':
+                if kind in ['review','vote']:
                     if not isolated:prompt+='\n尚未解决的问题（宿主记录）：'+json.dumps(open_questions(self.state),ensure_ascii=False)
                     prompt+='\n请最后单独写：表态：同意 '+ref+' 或 表态：反对 '+ref+'：理由'
                 if cap:prompt+='\n本轮修订不超过 '+str(cap)+' 字；只写差异和理由。'
@@ -243,7 +292,7 @@ class Coordinator:
                     prompt+='\n引用 '+mid+'（'+msg['provider']+'）：'+msg['text']
                 turn.parts={'project':project+snapshot};return prompt
             try:
-                answer=await self.work.reply(self.rid,agent,materials,self.root,self.settings,'协作发言',boundary=boundary)
+                answer=await self.work.reply(self.rid,agent,materials,self.root,self.settings,phase,boundary=boundary)
                 msg=next(m for m in reversed(self.store.messages(self.rid)) if m['provider']==agent and m['status']=='complete')
                 status='over_limit' if cap and len(answer)>cap else 'complete'
                 if kind in ['review','vote'] and not counted_round:
@@ -261,10 +310,12 @@ class Coordinator:
                             vote=record_vote(self.state,self.store,self.rid,agent,ref,follow['id'],'format_after_reask')
                         if vote is None:self.state['votes'].setdefault(ref,{})[agent]={'agree':None,'source':'pending_supervisor','message_id':follow['id']}
                     self.save()
+            except BillingUnavailable as exc:billing_errors.append(exc)
             except (ValueError,RuntimeError) as exc:self.evidence({'agent':agent,'kind':'ask','status':'failed','error':str(exc)[:1200],'plan_ref':ref})
         if action.get('parallel'):await asyncio.gather(*(one(a) for a in action['agents']))
         else:
             for a in action['agents']:await one(a)
+        if billing_errors:raise billing_errors[0]
 
     async def host_check(self,action):
         from workflows import verify_commands
@@ -345,6 +396,13 @@ class Coordinator:
             known=last.get('runtime_fault') or runtime_fault(last.get('error',''),known_only=True)
             if known and known['started']:
                 await self.execution_fault(last,self.state.get('pending_action'));return
+        if (self.state.get('blocker') or {}).get('discussion_limit'):
+            self.state['blocker']=None;self.save()
+            await self.supervisor_loop({'type':'discussion_limit_resume','text':text});return
+        if (self.state.get('blocker') or {}).get('billing'):
+            if not self.billing_ready():return
+            self.state['blocker']=None;self.save()
+            await self.supervisor_loop({'type':'billing_restored'});return
         if self.state.get('blocker'):
             runtime=self.state['blocker'].get('runtime')
             if runtime and is_resume_only(text,self.settings):
@@ -365,7 +423,8 @@ class Coordinator:
 
     async def resume_environment(self,text,trigger):
         a=self.state.get('pending_action');quota=await self.work.quota(self.rid,self.settings)
-        checks=await preflight(self.root,self.settings,quota,agent=a['agents'][0] if a else None)
+        aid=a['agents'][0] if a else self.settings.get('executor')
+        checks=await preflight(self.root,self.recovery_settings(aid,a),quota,agent=aid)
         scope=self.scope_check()
         if scope:checks.append(scope)
         failed=[c for c in checks if not c['ok']]
@@ -383,18 +442,24 @@ class Coordinator:
         from workflows import json_reply,project_context
         correction=''
         for _ in range(self.settings['supervisor']['max_steps']):
-            policy=await self.bindings();revision=policy['revision'];self.state['step']+=1;self.save()
+            policy=await self.bindings();revision=policy['revision']
             context=(await asyncio.to_thread(project_context,self.root))[:24000]
             connections=await roster.connections(self.settings)
             quota=await self.work.quota(self.rid,self.settings)
+            self.balance_notices(quota)
+            from discussion_resolution import resolve
+            if await resolve(self,policy,trigger,connections,quota):return
+            if not self.billing_ready():return
             own=next((r for r in (quota or {}).get('participants',[]) if r['role']=='supervisor'),None)
             if own and own['level']=='exhausted':raise RuntimeError('监工所用账户额度已耗尽，请更换连接或等待重置。')
+            self.state['step']+=1;self.save();monitor_answered=False
             self.store.event(self.rid,{'type':'phase','phase':f"第 {self.state['step']} 轮 · 监工检查",'provider':'supervisor'})
             before_state=digest({k:v for k,v in self.state.items() if k!='step'})
             before_usage=self.store.last_usage_id(self.rid)
             try:
                 request=lambda turn:supervisor_payload(turn,self.state,{**trigger,'correction':correction},context,connections,quota)
                 raw=await self.work.reply(self.rid,'supervisor',request,self.root,self.settings,'安排与检查',publish=False)
+                monitor_answered=True
                 d=validate_control(json_reply(raw),self.state,set(self.labels));action=d['action'];kind=action['type']
                 if self.store.policy(self.rid,self.settings['cooperation_policy'])['revision']!=revision:continue
                 if kind in ['ask','execute']:
@@ -428,19 +493,18 @@ class Coordinator:
                         prior=self.state.get('votes',{}).get(plan['ref'],{}).get(j.get('agent'))
                         if not prior or prior.get('source')!='pending_supervisor' or j.get('message_id')!=prior.get('message_id') or type(j.get('agree')) is not bool or not j.get('reason'):raise ValueError('监工判定必须绑定那位成员待判定的原话，不能覆盖格式表态。')
                         prior.update(agree=j['agree'],source='supervisor',reason=j['reason']);judgement_notes.append(self.labels[j['agent']]+'：'+j['reason']+'（此项由监工判定）')
-                    self.state['awaiting_approval']=plan['ref'];self.state['status']='awaiting_approval'
-                    from approval_documents import create,action as document_action
-                    document=create(self.store,self.rid,self.state,self.settings,judgement_notes)
-                    self.state['approval_document_id']=document['id'];self.save()
-                    self.store.message(self.rid,'system','方案审批文档已生成。请打开文档核对完整方案后批准。',phase='确认方案',actions=[document_action(document)])
-                    self.store.status(self.rid,'awaiting_approval');return
-                elif kind=='ask':await self.ask(action,policy)
+                    self.submit_approval(plan,judgement_notes);return
+                elif kind=='ask':
+                    await self.ask(action,policy)
+                    if await resolve(self,policy,{'type':'action_result'},connections,quota):return
                 elif kind=='check':await self.host_check(action)
                 elif kind=='execute':
                     prepared=self.prepare(action)
                     self.store.event(self.rid,{'type':'plan','tasks':[prepared['task']]})
                     if not await self.execute(prepared,quota):return
                 trigger={'type':'action_result','action':kind}
+            except BillingUnavailable as exc:
+                self.billing_block(exc,undo_round=not monitor_answered);return
             except ValueError as exc:
                 correction=str(exc);trigger={'type':'correction'}
                 self.store.message(self.rid,'system','安排校验：'+correction,phase='安排校验')
