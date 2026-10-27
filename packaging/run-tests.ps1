@@ -14,6 +14,9 @@ $env:PYTHONIOENCODING = 'utf-8'
 if ($env:GITHUB_ACTIONS) {
     if (-not (git config --global user.name)) { git config --global user.name 'CI' ; git config --global user.email 'ci@example.invalid' }
     foreach ($folder in '.codex', '.claude') { New-Item -ItemType Directory -Force -Path (Join-Path $HOME $folder) | Out-Null }
+    # The runner's TEMP is an 8.3 short path (RUNNER~1) that never equals Git's long top-level path.
+    $temp = Join-Path $env:RUNNER_TEMP 'tests'; New-Item -ItemType Directory -Force -Path $temp | Out-Null
+    $env:TEMP = $temp; $env:TMP = $temp
 }
 
 $summary = @(); $failed = @(); $totalRan = 0
@@ -34,7 +37,8 @@ foreach ($test in Get-ChildItem $gui -Filter 'test_*.py' | Sort-Object Name) {
         $failed += $module
         # unittest -v prints "test_name (...) ... " before each test; the last such line is the one that hung.
         $lastTests = (Get-Content $err -ErrorAction SilentlyContinue) | Where-Object { $_ -match '^test\w* \(' } | Select-Object -Last 3
-        $tail = ($lastTests -join "`n")
+        $broken = (Get-Content $err -ErrorAction SilentlyContinue) | Where-Object { $_ -match '\.\.\. (ERROR|FAIL)$' } | Select-Object -First 6
+        $tail = ((@($broken) + '--- last started:' + @($lastTests)) -join "`n")
         Write-Host "::error title=$module timed out::$(($tail -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'))"
     } else {
         $ran = if ($text -match 'Ran (\d+) tests?') { [int]$Matches[1] } else { 0 }
