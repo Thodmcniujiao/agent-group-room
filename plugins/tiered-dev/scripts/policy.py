@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-STATE = Path.home() / '.local' / 'share' / 'tiered-dev'
+STATE = Path(os.environ['TIERED_DATA_HOME']) if os.environ.get('TIERED_DATA_HOME') else Path.home() / '.local' / 'share' / 'tiered-dev'
 SECTIONS = {
     '目标 / Goal': r'目标|Goal|Objective',
     '允许修改 / Allowed paths': r'允许修改|Allowed (?:paths|changes|files)',

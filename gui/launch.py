@@ -11,7 +11,9 @@ import urllib.request
 import webbrowser
 
 ROOT=Path(__file__).resolve().parents[1]
-STATE=Path.home()/'.local/share/tiered-dev/gui'
+STATE=(Path(os.environ['TIERED_DATA_HOME']) if os.environ.get('TIERED_DATA_HOME') else Path.home()/'.local/share/tiered-dev')/'gui'
+# A portable build uses its own port range so it never attaches to an installed copy's backend.
+PORT_BASE=int(os.environ.get('TIERED_GUI_PORT_BASE','49315'))
 
 
 def healthy(port):
@@ -31,7 +33,7 @@ def ensure_service():
             return f"http://127.0.0.1:{old['port']}"
     except (OSError,ValueError,KeyError): pass
     port=None
-    for candidate in range(49315,49326):
+    for candidate in range(PORT_BASE,PORT_BASE+11):
         if healthy(candidate):
             return f'http://127.0.0.1:{candidate}'
         with socket.socket() as sock:

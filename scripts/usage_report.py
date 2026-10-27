@@ -1,6 +1,7 @@
 """Read an existing A1 database without constructing Store or changing room state."""
 import argparse
 import json
+import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -12,7 +13,7 @@ from usage_report import report
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--database',type=Path,default=Path.home()/'.local/share/tiered-dev/gui/rooms.sqlite3')
+    parser.add_argument('--database',type=Path,default=(Path(os.environ['TIERED_DATA_HOME']) if os.environ.get('TIERED_DATA_HOME') else Path.home()/'.local/share/tiered-dev')/'gui/rooms.sqlite3')
     parser.add_argument('--room');parser.add_argument('--by',choices=['member','role','session','day','adapter','kind'],default='member')
     parser.add_argument('--timezone',default='Europe/London');parser.add_argument('--json',action='store_true')
     args=parser.parse_args()

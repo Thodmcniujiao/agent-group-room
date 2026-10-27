@@ -1,0 +1,54 @@
+name: Portable build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-portable:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build portable package
+        shell: pwsh
+        run: ./packaging/build-portable.ps1 -Python (Get-Command python).Source
+
+      - name: Smoke test bundled backend
+        shell: pwsh
+        run: ./packaging/smoke-test.ps1 -Root dist/AgentGroupRoom
+
+      - name: Unit tests on the bundled runtime
+        id: tests
+        continue-on-error: true
+        shell: pwsh
+        working-directory: gui
+        env:
+          PYTHONNOUSERSITE: '1'
+        run: ../dist/AgentGroupRoom/runtime/python.exe -m unittest discover -p "test_*.py"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AgentGroupRoom-win64-portable
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = Get-ChildItem dist/*.zip | Select-Object -First 1
+          $tests = if ('${{ steps.tests.outcome }}' -eq 'success') { 'Unit tests passed on the bundled runtime.' } else { 'Unit tests reported failures on the CI runner; see the workflow log.' }
+          $notes = "Windows portable build. Extract the folder and run AgentGroupRoom.exe; all data stays in its data folder. See README-PORTABLE.md inside the archive.`n`n$tests"
+          gh release create $env:GITHUB_REF_NAME $zip.FullName --title "Agent Group Room $env:GITHUB_REF_NAME" --notes $notes

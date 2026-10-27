@@ -6,7 +6,8 @@ import re
 import threading
 from urllib.parse import urlsplit
 
-STATE = Path.home()/'.local/share/tiered-dev'
+# TIERED_DATA_HOME keeps all host data beside a portable build instead of the user profile.
+STATE = Path(os.environ['TIERED_DATA_HOME']) if os.environ.get('TIERED_DATA_HOME') else Path.home()/'.local/share/tiered-dev'
 PREFS = STATE/'preferences.json'
 SECRET = STATE/'deepseek.dpapi'
 PROFILE = Path.home()/'.codex/tiered.config.toml'
