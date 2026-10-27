@@ -426,6 +426,39 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('ChatGPT',exported);self.assertIn('Claude',exported);self.assertIn('DeepSeek',exported)
             self.assertIn('chatgpt-chosen',exported)
 
+    async def test_groups_archive_rename_and_delete_room(self):
+        headers={'X-Tiered-Token':server.TOKEN}
+        with tempfile.TemporaryDirectory() as first,tempfile.TemporaryDirectory() as second:
+            group=(await self.client.post('/api/groups',json={'name':' 前端 ','path':first},headers=headers)).json()
+            self.assertEqual(group['name'],'前端')
+            created=await self.client.post('/api/rooms',json={'title':'分组协作','group_id':group['id']},headers=headers)
+            self.assertEqual(created.status_code,200,created.text);room=created.json()
+            self.assertEqual((room['group_id'],room['project']),(group['id'],str(server.project_path(first))))
+            boot=(await self.client.get('/api/bootstrap')).json()
+            self.assertIn(group['id'],[g['id'] for g in boot['groups']])
+            renamed=(await self.client.post('/api/rooms/'+room['id']+'/meta',json={'title':'新的名字','archived':True},headers=headers)).json()
+            self.assertEqual(renamed['title'],'新的名字');self.assertTrue(renamed['archived'])
+            bad=await self.client.post('/api/rooms/'+room['id']+'/meta',json={'title':'x','owner':'y'},headers=headers)
+            self.assertEqual(bad.status_code,400)
+            epoch=server.ROOMS.load(room['id']).get('context_epoch',0)
+            moved=(await self.client.post('/api/groups/'+group['id'],json={'path':second,'apply_to_rooms':True},headers=headers)).json()
+            self.assertEqual(moved['rooms'][0]['project'],str(server.project_path(second)))
+            self.assertEqual(server.ROOMS.load(room['id'])['context_epoch'],epoch+1)
+            server.STORE.message(room['id'],'chatgpt','保留到删除前')
+            server.STORE.status(room['id'],'running')
+            refused=await self.client.post('/api/rooms/'+room['id']+'/delete',json={},headers=headers)
+            self.assertEqual(refused.status_code,400)
+            server.STORE.status(room['id'],'idle')
+            self.assertEqual((await self.client.post('/api/groups/'+group['id']+'/delete',json={},headers=headers)).json()['ungrouped'],1)
+            self.assertIsNone(server.STORE.room(room['id'])['group_id'])
+            deleted=await self.client.post('/api/rooms/'+room['id']+'/delete',json={},headers=headers)
+            self.assertEqual(deleted.status_code,200,deleted.text)
+            self.assertNotIn(room['id'],[r['id'] for r in server.STORE.rooms()])
+            with server.STORE.lock:
+                self.assertEqual(server.STORE.db.execute('SELECT count(*) FROM messages WHERE room=?',(room['id'],)).fetchone()[0],0)
+                self.assertEqual(server.STORE.db.execute('SELECT count(*) FROM room_settings WHERE room=?',(room['id'],)).fetchone()[0],0)
+            self.assertTrue(Path(first).is_dir())
+
     async def test_policy_persists_and_live_message_does_not_start_second_run(self):
         with tempfile.TemporaryDirectory() as folder:
             rid=server.STORE.create('Policy',folder)['id'];headers={'X-Tiered-Token':server.TOKEN}

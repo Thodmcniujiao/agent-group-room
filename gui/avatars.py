@@ -33,3 +33,11 @@ class Avatars:
             self.path.parent.mkdir(parents=True,exist_ok=True);pending=self.path.with_suffix('.new')
             pending.write_text(json.dumps(value),encoding='utf-8');os.replace(pending,self.path)
             return value
+
+    def forget_prefix(self,prefix):
+        with self.lock:
+            value=self.snapshot();kept={k:v for k,v in value.items() if not k.startswith(prefix)}
+            if len(kept)==len(value):return value
+            self.path.parent.mkdir(parents=True,exist_ok=True);pending=self.path.with_suffix('.new')
+            pending.write_text(json.dumps(kept),encoding='utf-8');os.replace(pending,self.path)
+            return kept

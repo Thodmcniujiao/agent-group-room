@@ -49,6 +49,10 @@ class Store:
           CREATE INDEX IF NOT EXISTS outputs_by_room ON output_archives(room,created);
           CREATE TABLE IF NOT EXISTS output_reads(id INTEGER PRIMARY KEY,room TEXT,session_key TEXT,branch TEXT,output_id TEXT,start INTEGER,end INTEGER,created TEXT);
         ''')
+        self.db.execute('CREATE TABLE IF NOT EXISTS room_groups(id TEXT PRIMARY KEY,name TEXT NOT NULL,path TEXT NOT NULL,sort INTEGER NOT NULL DEFAULT 0,created TEXT)')
+        room_columns={r[1] for r in self.db.execute('PRAGMA table_info(rooms)')}
+        if 'group_id' not in room_columns:self.db.execute('ALTER TABLE rooms ADD COLUMN group_id TEXT')
+        if 'archived' not in room_columns:self.db.execute('ALTER TABLE rooms ADD COLUMN archived TEXT')
         if 'action_id' not in {r[1] for r in self.db.execute('PRAGMA table_info(approvals)')}:
             self.db.execute('ALTER TABLE approvals ADD COLUMN action_id TEXT')
         self.db.execute("UPDATE rooms SET status='interrupted' WHERE status IN ('running','paused','budget_paused','queued')")
@@ -66,10 +70,10 @@ class Store:
         with self.lock:
             return [dict(row) for row in self.db.execute('SELECT * FROM rooms ORDER BY created DESC')]
 
-    def create(self, title, project):
+    def create(self, title, project, group_id=None):
         rid = uuid.uuid4().hex
         with self.lock:
-            self.db.execute('INSERT INTO rooms VALUES(?,?,?,?,?)', (rid,title[:70] or '新的协作',project,'idle',now()))
+            self.db.execute('INSERT INTO rooms(id,title,project,status,created,group_id) VALUES(?,?,?,?,?,?)', (rid,title.strip()[:70] or '新的协作',project,'idle',now(),self._group_ref(group_id)))
             self.db.commit()
         return self.room(rid)
 
@@ -409,3 +413,106 @@ class Store:
         value=self.policy(rid,text)
         self.event(rid,{'type':'policy_updated','policy':value})
         return value
+
+    # Sidebar organisation: groups own a default folder; rooms keep their own project path.
+    def groups(self):
+        with self.lock:
+            return [dict(row) for row in self.db.execute('SELECT * FROM room_groups ORDER BY sort,created')]
+
+    def group(self,gid):
+        with self.lock:
+            row=self.db.execute('SELECT * FROM room_groups WHERE id=?',(gid,)).fetchone()
+            if row is None:raise ValueError('分组不存在。')
+            return dict(row)
+
+    def _group_ref(self,gid):
+        if gid is None or gid=='':return None
+        if not isinstance(gid,str):raise ValueError('分组无效。')
+        return self.group(gid)['id']
+
+    @staticmethod
+    def _group_name(name):
+        if not isinstance(name,str) or not 1<=len(name.strip())<=40:raise ValueError('分组名称需为 1 至 40 个字符。')
+        return name.strip()
+
+    def create_group(self,name,path):
+        gid=uuid.uuid4().hex
+        with self.lock:
+            last=self.db.execute('SELECT COALESCE(MAX(sort),0) FROM room_groups').fetchone()[0]
+            self.db.execute('INSERT INTO room_groups(id,name,path,sort,created) VALUES(?,?,?,?,?)',(gid,self._group_name(name),str(path),last+1,now()))
+            self.db.commit()
+        return self.group(gid)
+
+    def update_group(self,gid,name=None,path=None):
+        with self.lock:
+            self.group(gid)
+            if name is not None:self.db.execute('UPDATE room_groups SET name=? WHERE id=?',(self._group_name(name),gid))
+            if path is not None:self.db.execute('UPDATE room_groups SET path=? WHERE id=?',(str(path),gid))
+            self.db.commit()
+        return self.group(gid)
+
+    def reorder_groups(self,ids):
+        with self.lock:
+            known={g['id'] for g in self.groups()}
+            if not isinstance(ids,list) or set(ids)!=known or len(ids)!=len(known):raise ValueError('分组顺序无效。')
+            for index,gid in enumerate(ids):self.db.execute('UPDATE room_groups SET sort=? WHERE id=?',(index+1,gid))
+            self.db.commit()
+        return self.groups()
+
+    def delete_group(self,gid):
+        """Removes only the group; its rooms fall back to ungrouped."""
+        with self.lock:
+            self.group(gid)
+            moved=self.db.execute('UPDATE rooms SET group_id=NULL WHERE group_id=?',(gid,)).rowcount
+            self.db.execute('DELETE FROM room_groups WHERE id=?',(gid,))
+            self.db.commit()
+        return moved
+
+    def group_rooms(self,gid):
+        with self.lock:
+            return [dict(row) for row in self.db.execute('SELECT * FROM rooms WHERE group_id=?',(gid,))]
+
+    def update_room(self,rid,title=None,project=None,group_id=...,archived=None):
+        """Edits sidebar metadata. A project change starts fresh provider sessions."""
+        with self.lock:
+            current=self.room(rid)
+            if title is not None:
+                if not isinstance(title,str) or not 1<=len(title.strip())<=70:raise ValueError('协作名称需为 1 至 70 个字符。')
+                self.db.execute('UPDATE rooms SET title=? WHERE id=?',(title.strip(),rid))
+            if group_id is not ...:
+                self.db.execute('UPDATE rooms SET group_id=? WHERE id=?',(self._group_ref(group_id),rid))
+            if archived is not None:
+                if type(archived) is not bool:raise ValueError('归档设置无效。')
+                self.db.execute('UPDATE rooms SET archived=? WHERE id=?',(now() if archived else None,rid))
+            if project is not None and str(project)!=current['project']:
+                self.db.execute('UPDATE rooms SET project=? WHERE id=?',(str(project),rid))
+                config=self.configuration(rid)
+                if config is not None:
+                    config['context_epoch']=config.get('context_epoch',0)+1
+                    self.db.execute('UPDATE room_settings SET data=? WHERE room=?',(json.dumps(config,ensure_ascii=False),rid))
+            self.db.commit()
+            value=self.room(rid)
+        self.event(rid,{'type':'room_meta','room':value})
+        return value
+
+    def delete_room(self,rid):
+        """Deletes every host record of a room. Project files are never touched."""
+        with self.lock:
+            self.room(rid)
+            sessions='SELECT key FROM agent_sessions WHERE room=? UNION SELECT session_key FROM usage_records WHERE room=?'
+            messages='SELECT id FROM messages WHERE room=?'
+            self.db.execute(f'DELETE FROM tool_deliveries WHERE session_key IN ({sessions})',(rid,rid))
+            self.db.execute(f'DELETE FROM menu_deliveries WHERE session_key IN ({sessions})',(rid,rid))
+            self.db.execute(f'DELETE FROM message_actions WHERE message_id IN ({messages})',(rid,))
+            self.db.execute(f'DELETE FROM message_summaries WHERE message_id IN ({messages})',(rid,))
+            tables=[row[0] for row in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+            for table in tables:
+                columns={r[1] for r in self.db.execute(f'PRAGMA table_info("{table}")')}
+                if 'room' in columns:self.db.execute(f'DELETE FROM "{table}" WHERE room=?',(rid,))
+            self.db.execute('DELETE FROM rooms WHERE id=?',(rid,))
+            self.db.commit()
+            self._live.pop(rid,None)
+        import shutil
+        directory=getattr(self.logs,'directory',None)
+        if directory is not None and (Path(directory)/rid).is_dir():
+            shutil.rmtree(Path(directory)/rid,ignore_errors=True)

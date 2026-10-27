@@ -175,7 +175,7 @@ class Workflows(SupervisorWorkflow):
         if source=='button' and (mode!='workflow' or not action or action.get('kind') not in ['approve','recheck']):raise ValueError('宿主动作无效。')
         self.prune_finished()
         if rid in self.running: raise ValueError('此会话正在运行，请先停止或等待完成。')
-        if mode!='policy' and not settings['members']:raise ValueError('此协作室暂无成员，请在“协作室信息”中邀请 Agent。')
+        if mode!='policy' and not settings['members']:raise ValueError('此协作室暂无成员，请点击右上角成员头像，在“协作室设置 › 成员与执行者”中邀请 Agent。')
         room=self.store.room(rid);root=project_path(room['project'])
         canonical=str(root).casefold()
         queued=mode=='workflow' and canonical in self.project_busy

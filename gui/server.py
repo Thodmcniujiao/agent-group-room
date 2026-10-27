@@ -59,7 +59,7 @@ async def bootstrap(request):
     selected=preferences.load();MODELS.request_refresh(selected);USAGE.request_refresh(selected)
     return JSONResponse({'token':TOKEN,'preferences':selected,'model_catalog':MODELS.snapshot(selected),
         'account_usage':USAGE.snapshot(selected),'connections':await roster.connections(selected),
-        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'avatars':AVATARS.snapshot(),'display':DISPLAY.snapshot(),'version':VERSION})
+        'logins':LOGIN.snapshot(),'rooms':STORE.rooms(),'groups':STORE.groups(),'avatars':AVATARS.snapshot(),'display':DISPLAY.snapshot(),'version':VERSION})
 
 
 async def health(request):
@@ -328,11 +328,76 @@ $picker.Dispose()
 
 async def create_room(request):
     body=await request.json()
+    group=body.get('group_id') or None
+    if not body.get('project') and group:body['project']=STORE.group(group)['path']
     path=project_path(body.get('project',''))
-    value=STORE.create(str(body.get('title','新的协作')),str(path))
+    value=STORE.create(str(body.get('title','新的协作')),str(path),group)
     selected=preferences.load();ROOMS.seed(value['id'],selected)
     STORE.set_policy(value['id'],selected['cooperation_policy'])
     return JSONResponse(value)
+
+
+ACTIVE_STATUSES={'running','paused','budget_paused','queued'}
+
+
+def room_busy(rid):
+    task=WORK.running.get(rid)
+    return bool(task is not None and not task.done()) or STORE.room(rid)['status'] in ACTIVE_STATUSES
+
+
+async def json_body(request,allowed):
+    body=await request.json()
+    if not isinstance(body,dict) or set(body)-set(allowed):raise ValueError('请求格式无效。')
+    return body
+
+
+async def create_group(request):
+    body=await json_body(request,{'name','path'})
+    return JSONResponse(STORE.create_group(body.get('name',''),project_path(body.get('path',''))))
+
+
+async def order_groups(request):
+    body=await json_body(request,{'ids'})
+    return JSONResponse({'groups':STORE.reorder_groups(body.get('ids'))})
+
+
+async def update_group(request):
+    gid=request.path_params['gid'];body=await json_body(request,{'name','path','apply_to_rooms'})
+    path=project_path(body['path']) if body.get('path') is not None else None
+    if 'apply_to_rooms' in body and type(body['apply_to_rooms']) is not bool:raise ValueError('设置格式无效。')
+    value=STORE.update_group(gid,body.get('name'),path)
+    moved=[];skipped=[]
+    if path is not None and body.get('apply_to_rooms'):
+        for item in STORE.group_rooms(gid):
+            if item['project']==str(path):continue
+            if room_busy(item['id']):skipped.append(item['id']);continue
+            moved.append(STORE.update_room(item['id'],project=path))
+    return JSONResponse({'group':value,'rooms':moved,'skipped':skipped})
+
+
+async def delete_group(request):
+    moved=STORE.delete_group(request.path_params['gid'])
+    return JSONResponse({'status':'deleted','ungrouped':moved})
+
+
+async def room_meta(request):
+    rid=request.path_params['rid'];body=await json_body(request,{'title','project','group_id','archived'})
+    current=STORE.room(rid);project=None
+    if body.get('project') is not None:
+        project=project_path(body['project'])
+        if str(project)!=current['project'] and room_busy(rid):raise ValueError('协作运行中，停止后才能更换项目文件夹。')
+    if body.get('archived') is True and room_busy(rid):raise ValueError('协作运行中，停止后才能归档。')
+    return JSONResponse(STORE.update_room(rid,title=body.get('title'),project=project,
+        group_id=body['group_id'] if 'group_id' in body else ...,archived=body.get('archived')))
+
+
+async def delete_room(request):
+    rid=request.path_params['rid']
+    if room_busy(rid):raise ValueError('协作运行中，停止后才能删除。')
+    WORK.running.pop(rid,None);WORK.resume.pop(rid,None)
+    STORE.delete_room(rid)
+    AVATARS.forget_prefix('room:'+rid+':')
+    return JSONResponse({'status':'deleted'})
 
 
 async def room(request):
@@ -574,7 +639,10 @@ routes=[Route('/',lambda request:FileResponse(WEB/'index.html')),
     Route('/api/members/{mid}',save_member,methods=['POST']),Route('/api/members/{mid}/remove',remove_member,methods=['POST']),
     Route('/api/members/{mid}/key',member_key,methods=['POST']),Route('/api/members/{mid}/models',member_models,methods=['POST']),
     Route('/api/login/{provider}',login,methods=['POST']),Route('/api/folder',folder,methods=['POST']),
+    Route('/api/groups',create_group,methods=['POST']),Route('/api/groups/order',order_groups,methods=['POST']),
+    Route('/api/groups/{gid}',update_group,methods=['POST']),Route('/api/groups/{gid}/delete',delete_group,methods=['POST']),
     Route('/api/rooms',create_room,methods=['POST']),Route('/api/rooms/{rid}',room),
+    Route('/api/rooms/{rid}/meta',room_meta,methods=['POST']),Route('/api/rooms/{rid}/delete',delete_room,methods=['POST']),
     Route('/api/rooms/{rid}/configuration',room_configuration,methods=['GET','POST']),
     Route('/api/rooms/{rid}/members',add_room_member,methods=['POST']),
     Route('/api/rooms/{rid}/members/{mid}/avatar',room_member_avatar,methods=['POST']),
